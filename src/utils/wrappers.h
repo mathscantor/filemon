@@ -117,9 +117,11 @@ int has_config_fanotify() {
             #ifndef CONFIG_FANOTIFY_ENABLED
             #define CONFIG_FANOTIFY_ENABLED
             #endif
+            fclose(file);
             return 1;
         }
     }
+    fclose(file);
     return 0;
 }
 
@@ -152,9 +154,11 @@ int has_config_fanotify_access_perms() {
             #ifndef CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
             #define CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
             #endif
+            fclose(file);
             return 1;
         }
     }
+    fclose(file);
     return 0;
 }
 #endif
