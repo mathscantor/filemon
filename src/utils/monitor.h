@@ -177,23 +177,25 @@ void begin_monitor(monitor_box_t* m_box) {
     apply_fanotify_marks(m_box, m_box->parent_path);
     
     // Create the threads
+    #ifdef FAN_REPORT_DFID_NAME
     if (pthread_create(&thread1, NULL, handle_create_delete_move_thread, &args) != 0) {
         log_message(ERROR, 1, "Failed to create thread for create/delete events\n");
         exit(EXIT_FAILURE);
     }
-    #ifdef FAN_REPORT_DFID_NAME
+    #endif
     if (pthread_create(&thread2, NULL, handle_read_write_execute_thread, &args) != 0) {
         log_message(ERROR, 1, "Failed to create thread for read/write events\n");
         exit(EXIT_FAILURE);
     }
-    #endif
     if (g_logger.logfile[0] != 0) {
         printf("[+] filemon has started successfully.\n");
         printf("[+] All output is redirected to '%s'\n", g_logger.logfile);
     }
     log_message(INFO, 1, "filemon has started successfully.\n");
 
+    #ifdef FAN_REPORT_DFID_NAME
     pthread_join(thread1, NULL);
+    #endif
     pthread_join(thread2, NULL);
 }
 
