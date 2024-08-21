@@ -171,7 +171,10 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
  */
 void begin_monitor(monitor_box_t* m_box) {
 
-    pthread_t thread1, thread2;
+    #ifdef FAN_REPORT_DFID_NAME
+    pthread_t thread1;
+    #endif
+    pthread_t thread2;
     thread_arg_t args = { .m_box = m_box };
 
     apply_fanotify_marks(m_box, m_box->parent_path);
@@ -538,6 +541,7 @@ void apply_fanotify_marks(monitor_box_t* m_box, char* path) {
         num_attempts++;
     } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
 
+    #ifdef FAN_REPORT_DFID_NAME
     num_attempts = 0;
     do {
         wd = fanotify_mark(m_box->fan_fd_create_delete_move, FAN_MARK_ADD, event_mask_create_delete_move, AT_FDCWD, path);
@@ -546,6 +550,7 @@ void apply_fanotify_marks(monitor_box_t* m_box, char* path) {
         }
         num_attempts++;
     } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
+    #endif
 
     dp = opendir(path);
     if (dp == NULL) {
@@ -628,6 +633,7 @@ void remove_fanotify_marks(monitor_box_t* m_box, char* path) {
         num_attempts++;
     } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
 
+    #ifdef FAN_REPORT_DFID_NAME
     num_attempts = 0;
     do {
         wd = fanotify_mark(m_box->fan_fd_create_delete_move, FAN_MARK_REMOVE, event_mask_create_delete_move, AT_FDCWD, path);
@@ -636,6 +642,7 @@ void remove_fanotify_marks(monitor_box_t* m_box, char* path) {
         }
         num_attempts++;
     } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
+    #endif
 
     closedir(dp);
 }
