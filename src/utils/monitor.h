@@ -132,11 +132,13 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE\n");
         exit(EXIT_FAILURE);
     }
+    #ifdef FAN_REPORT_DFID_NAME
     m_box->fan_fd_create_delete_move = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
     if (m_box->fan_fd_create_delete_move == -1) {
         log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR)\n");
         exit(EXIT_FAILURE);
     }
+    #endif
     if (!path_exists(parent_path)) {
         log_message(ERROR, 1, "Directory path does not exist: %s\n", parent_path);
         exit(EXIT_FAILURE);
@@ -179,12 +181,12 @@ void begin_monitor(monitor_box_t* m_box) {
         log_message(ERROR, 1, "Failed to create thread for create/delete events\n");
         exit(EXIT_FAILURE);
     }
-
+    #ifdef FAN_REPORT_DFID_NAME
     if (pthread_create(&thread2, NULL, handle_read_write_execute_thread, &args) != 0) {
         log_message(ERROR, 1, "Failed to create thread for read/write events\n");
         exit(EXIT_FAILURE);
     }
-
+    #endif
     if (g_logger.logfile[0] != 0) {
         printf("[+] filemon has started successfully.\n");
         printf("[+] All output is redirected to '%s'\n", g_logger.logfile);
