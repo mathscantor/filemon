@@ -141,6 +141,9 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         exit(EXIT_FAILURE);
     }
     #endif
+    #ifndef FAN_REPORT_DFID_NAME
+    m_box->fan_fd_create_delete_move = -1;
+    #endif
     if (!path_exists(parent_path)) {
         log_message(ERROR, 1, "Directory path does not exist: %s\n", parent_path);
         exit(EXIT_FAILURE);
