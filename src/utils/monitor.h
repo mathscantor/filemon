@@ -303,6 +303,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
     return;
 }
 
+#ifdef FAN_REPORT_DFID_NAME
 /**
  * @brief Fanotify event handler for create, delete and move events.
  * 
@@ -439,6 +440,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
 
     return;
 }
+#endif
 
 /**
  * @brief Thread function to run handle_events_create_delete_move()
