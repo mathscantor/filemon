@@ -30,6 +30,7 @@ typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
+#ifdef FAN_REPORT_DFID_NAME
 static uint64_t event_mask_create_delete_move = (
     #ifdef FAN_CREATE
     FAN_CREATE |
@@ -53,6 +54,7 @@ static uint64_t event_mask_create_delete_move = (
 
     FAN_ONDIR
 );
+#endif
 
 static uint64_t event_mask_read_write_execute =
 (   
