@@ -98,7 +98,7 @@ int has_config_fanotify() {
     // Get the kernel version
     if (uname(&uname_data) != 0) {
         perror("uname");
-        return 1;
+        return 0;
     }
 
     // Construct the file path
@@ -108,7 +108,7 @@ int has_config_fanotify() {
     file = fopen(filepath, "r");
     if (file == NULL) {
         perror("fopen");
-        return 1;
+        return 0;
     }
 
     // Search for the string in the file
@@ -135,7 +135,7 @@ int has_config_fanotify_access_perms() {
     // Get the kernel version
     if (uname(&uname_data) != 0) {
         perror("uname");
-        return 1;
+        return 0;
     }
 
     // Construct the file path
@@ -145,7 +145,7 @@ int has_config_fanotify_access_perms() {
     file = fopen(filepath, "r");
     if (file == NULL) {
         perror("fopen");
-        return 1;
+        return 0;
     }
 
     // Search for the string in the file
