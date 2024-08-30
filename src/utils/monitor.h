@@ -103,8 +103,7 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
-void apply_fanotify_marks(monitor_box_t* m_box, char* path);
-void remove_fanotify_marks(monitor_box_t* m_box, char* path);
+void apply_fanotify_marks(monitor_box_t* m_box);
 void handle_events_read_write_execute(monitor_box_t* m_box);
 void handle_events_create_delete_move(monitor_box_t* m_box);
 void* handle_create_delete_move_thread(void* arg);
@@ -159,7 +158,7 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         strncpy(m_box->exclude_pattern, exclude_pattern, sizeof(m_box->exclude_pattern));
         ret = regcomp(&m_box->exclude_regex, exclude_pattern, REG_EXTENDED);
         if (ret) {
-            log_message(ERROR, 1, "Could not compile exclude_dir_regex\n");
+            log_message(ERROR, 1, "Could not compile exclude_regex\n");
             exit(EXIT_FAILURE);
         }
     }
@@ -182,7 +181,7 @@ void begin_monitor(monitor_box_t* m_box) {
     pthread_t thread2;
     thread_arg_t args = { .m_box = m_box };
 
-    apply_fanotify_marks(m_box, m_box->parent_path);
+    apply_fanotify_marks(m_box);
     
     // Create the threads
     #ifdef FAN_REPORT_DFID_NAME
@@ -216,6 +215,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
 
     char buf[8192];
     ssize_t buflen;
+    int ret;
     struct fanotify_event_metadata *metadata;
     struct fanotify_response response;
 
@@ -291,6 +291,13 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
                 strncat(flags, "FAN_CLOSE_NOWRITE, ", strlen("FAN_CLOSE_NOWRITE, ") + 1);
             }
             #endif
+
+            if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
+                flags[0] = '\0';
+                close(metadata->fd);
+                metadata = FAN_EVENT_NEXT(metadata, buflen);
+                continue;
+            }
 
             if (m_box->exclude_pattern[0] != 0) {
                 if (regex_search(m_box->exclude_regex, full_path)) {
@@ -381,7 +388,6 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
                 strncat(flags, "FAN_CREATE, ", strlen("FAN_CREATE, ") + 1);
                 if (metadata->mask & FAN_ONDIR) {
                     strncat(flags, "FAN_ONDIR, ", strlen("FAN_ONDIR, ") + 1);
-                    apply_fanotify_marks(m_box, full_path);
                 }
             }
             #endif
@@ -418,10 +424,18 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
                 strncat(flags, "FAN_MOVED_TO, ", strlen("FAN_MOVED_TO, ") + 1);
                 if (metadata->mask & FAN_ONDIR) {
                     strncat(flags, "FAN_ONDIR, ", strlen("FAN_ONDIR, ") + 1);
-                    apply_fanotify_marks(m_box, full_path);
                 }
             }
             #endif
+
+            if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
+                flags[0] = '\0';
+                close(metadata->fd);
+                close(mount_fd);
+                close(event_fd);
+                metadata = FAN_EVENT_NEXT(metadata, buflen);
+                continue;
+            }
 
             if (m_box->exclude_pattern[0] != 0) {
                 if (regex_search(m_box->exclude_regex, full_path)) {
@@ -489,7 +503,6 @@ void* handle_read_write_execute_thread(void* arg) {
  * @param m_box The monitor box.
  */
 void stop_monitor(monitor_box_t* m_box){
-    remove_fanotify_marks(m_box, m_box->parent_path);
     close(m_box->fan_fd_read_write_execute);
     close(m_box->fan_fd_create_delete_move);
     free(m_box);
@@ -518,137 +531,27 @@ void print_box(monitor_box_t* m_box) {
  * @brief FAN_MARK_ADD recursively from path.
  * 
  * @param m_box The monitor box.
- * @param path  The path to FAN_MARK_ADD.
  */
-void apply_fanotify_marks(monitor_box_t* m_box, char* path) {
+void apply_fanotify_marks(monitor_box_t* m_box) {
 
-    struct dirent *entry;
-    DIR *dp;
     int wd;
-    int num_attempts;
-    char full_path[1024];
 
-    if (m_box->exclude_pattern[0] != 0) {
-        if (regex_search(m_box->exclude_regex, path)) {
-            return;
-        }
-    }
-
-    log_message(DEBUG, 1, "FAN_MARK_ADD: %s\n", path);
-
-    // Mark the current directory
-    num_attempts = 0;
-    do {
-        wd = fanotify_mark(m_box->fan_fd_read_write_execute, FAN_MARK_ADD, event_mask_read_write_execute, AT_FDCWD, path);
-        if (wd == -1) {
-            log_message(WARNING, 1, "Attempt %d: Failed to apply fanotify mark (event_mask_read_write_execute) on '%s'\n", num_attempts + 1, path);
-        }
-        num_attempts++;
-    } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
-
-    #ifdef FAN_REPORT_DFID_NAME
-    num_attempts = 0;
-    do {
-        wd = fanotify_mark(m_box->fan_fd_create_delete_move, FAN_MARK_ADD, event_mask_create_delete_move, AT_FDCWD, path);
-        if (wd == -1) {
-            log_message(WARNING, 1, "Attempt %d: Failed to apply fanotify mark (event_mask_create_delete_move) on '%s'\n", num_attempts + 1, path);
-        }
-        num_attempts++;
-    } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
+    #ifdef FAN_MARK_FILESYSTEM
+    int mark_mode = FAN_MARK_ADD | FAN_MARK_FILESYSTEM;
+    #else
+    int mark_mode = FAN_MARK_ADD | FAN_MARK_MOUNT;
     #endif
 
-    dp = opendir(path);
-    if (dp == NULL) {
-        log_message(ERROR, 1, "apply_fanotify_marks() failed to opendir: %s\n", path);
-        return;
+    wd = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, "/");
+    if (wd == -1) {
+        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"/\"\n");
     }
-
-    // Traverse the directory
-    while ((entry = readdir(dp)) != NULL) {
-        // Skip "." and ".." directories
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-
-        // Construct the full path of the entry
-        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-
-        // Check if the entry is a directory
-        if (is_directory(full_path)) {
-            // Recursively mark this directory
-            apply_fanotify_marks(m_box, full_path);
-        }
-    }
-
-    closedir(dp);
-}
-
-/**
- * @brief FAN_MARK_REMOVE recursively from path.
- * 
- * @param m_box The monitor box.
- * @param path  The path to FAN_MARK_REMOVE.
- */
-void remove_fanotify_marks(monitor_box_t* m_box, char* path) {
-
-    struct dirent *entry;
-    DIR *dp;
-    int wd;
-    int num_attempts;
-    char full_path[1024];
-
-    if (m_box->exclude_pattern[0] != 0) {
-        if (regex_search(m_box->exclude_regex, path)) {
-            return;
-        }
-    }
-
-    dp = opendir(path);
-    if (dp == NULL) {
-        log_message(ERROR, 1, "remove_fanotify_marks() failed to opendir: %s\n", path);
-        return;
-    }
-
-    // Traverse the directory
-    while ((entry = readdir(dp)) != NULL) {
-        // Skip "." and ".." directories
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-
-        // Construct the full path of the entry
-        snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
-
-        // Check if the entry is a directory
-        if (is_directory(full_path)) {
-            // Recursively unmark this directory
-            remove_fanotify_marks(m_box, full_path);
-        }
-    }
-
-    log_message(DEBUG, 1, "FAN_MARK_REMOVE: %s\n", path);
-
-    // Remove the mark from the current directory
-    num_attempts = 0;
-    do {
-        wd = fanotify_mark(m_box->fan_fd_read_write_execute, FAN_MARK_REMOVE, event_mask_read_write_execute, AT_FDCWD, path);
-        if (wd == -1) {
-            log_message(WARNING, 1, "Attempt %d: Failed to remove fanotify mark (event_mask_read_write_execute) on '%s'\n", num_attempts + 1,  path);
-        }
-        num_attempts++;
-    } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
 
     #ifdef FAN_REPORT_DFID_NAME
-    num_attempts = 0;
-    do {
-        wd = fanotify_mark(m_box->fan_fd_create_delete_move, FAN_MARK_REMOVE, event_mask_create_delete_move, AT_FDCWD, path);
-        if (wd == -1) {
-            log_message(WARNING, 1, "Attempt %d: Failed to remove fanotify mark (event_mask_create_delete_move) on '%s'\n", num_attempts + 1, path);
-        }
-        num_attempts++;
-    } while(num_attempts < MAX_FAN_MARK_ATTEMPTS && wd == -1);
+    wd = fanotify_mark(m_box->fan_fd_create_delete_move, mark_mode, event_mask_create_delete_move, AT_FDCWD, "/");
+    if (wd == -1) {
+        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"/\"\n");
+    }
     #endif
-
-    closedir(dp);
 }
 #endif 
