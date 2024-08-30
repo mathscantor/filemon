@@ -549,12 +549,21 @@ void apply_fanotify_marks(monitor_box_t* m_box) {
         /* Only consider mounts which have an actual device or bind mount
          * point. The others are stuff like proc, sysfs, binfmt_misc etc. which
          * are virtual and do not actually cause disk access. */
-        log_message(INFO, 1,"fsname: %s dir: %s type: %s\n", mount->mnt_fsname, mount->mnt_dir, mount->mnt_type);
-        if (mount->mnt_fsname == NULL || access (mount->mnt_fsname, F_OK) != 0 || mount->mnt_fsname[0] != '/') {
-            /* zfs mount point don't start with a "/" so allow them anyway */
-            if (strcmp(mount->mnt_type, "zfs") != 0) {
-                continue;
-            }
+        if (mount->mnt_fsname == NULL || access (mount->mnt_dir, F_OK) != 0) {
+            continue;
+        }
+
+        log_message(DEBUG, 1, "fsname: %s dir: %s type: %s\n", mount->mnt_fsname, mount->mnt_dir, mount->mnt_type);
+        if (strncmp(mount->mnt_type, "proc", 4) == 0 || strncmp(mount->mnt_type, "sysfs", 5) == 0 
+        || strncmp(mount->mnt_type, "binfmt_misc", 11) == 0 || strncmp(mount->mnt_type, "nsfs", 4) == 0
+        || strncmp(mount->mnt_type, "hugetlbfs", 9) == 0 || strncmp(mount->mnt_type, "fusectl", 7) == 0
+        || strncmp(mount->mnt_type, "mqueue", 6) == 0 || strncmp(mount->mnt_type, "debugfs", 7) == 0
+        || strncmp(mount->mnt_type, "pstore", 6) == 0 || strncmp(mount->mnt_type, "efivarfs", 8) == 0
+        || strncmp(mount->mnt_type, "bpf", 3) == 0 || strncmp(mount->mnt_type, "autofs", 6) == 0
+        || strncmp(mount->mnt_type, "ramfs", 5) == 0 || strncmp(mount->mnt_type, "tracefs", 7) == 0
+        || strncmp(mount->mnt_type, "configfs", 8) == 0 || strncmp(mount->mnt_type, "securityfs", 10) == 0
+        || strncmp(mount->mnt_type, "devpts", 6) == 0){
+            continue;
         }
 
         ret = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, mount->mnt_dir);
