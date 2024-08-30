@@ -10,15 +10,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <regex.h>
+#include <mntent.h>
 #include "wrappers.h"
 #include "logger.h"
 
 #ifndef MONITOR_H
 #define MONITOR_H
 
-#define MAX_FAN_MARK_ATTEMPTS 3
-
-typedef struct monitor_box {
+typedef struct {
     int fan_fd_read_write_execute;
     int fan_fd_create_delete_move;
     char parent_path[PATH_MAX];
@@ -215,7 +214,6 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
 
     char buf[8192];
     ssize_t buflen;
-    int ret;
     struct fanotify_event_metadata *metadata;
     struct fanotify_response response;
 
@@ -534,7 +532,9 @@ void print_box(monitor_box_t* m_box) {
  */
 void apply_fanotify_marks(monitor_box_t* m_box) {
 
-    int wd;
+    int ret;
+    FILE* mounts;
+    struct mntent* mount;
 
     #ifdef FAN_MARK_FILESYSTEM
     int mark_mode = FAN_MARK_ADD | FAN_MARK_FILESYSTEM;
@@ -542,16 +542,38 @@ void apply_fanotify_marks(monitor_box_t* m_box) {
     int mark_mode = FAN_MARK_ADD | FAN_MARK_MOUNT;
     #endif
 
-    wd = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, "/");
-    if (wd == -1) {
-        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"/\"\n");
+    mounts = setmntent ("/proc/mounts", "r");
+    if (mounts == NULL)
+        log_message(ERROR, 1, "setmntent: unable to read \"/proc/mounts\"");
+    while ((mount = getmntent (mounts)) != NULL) {
+        /* Only consider mounts which have an actual device or bind mount
+         * point. The others are stuff like proc, sysfs, binfmt_misc etc. which
+         * are virtual and do not actually cause disk access. */
+        log_message(INFO, 1,"fsname: %s dir: %s type: %s\n", mount->mnt_fsname, mount->mnt_dir, mount->mnt_type);
+        if (mount->mnt_fsname == NULL || access (mount->mnt_fsname, F_OK) != 0 || mount->mnt_fsname[0] != '/') {
+            /* zfs mount point don't start with a "/" so allow them anyway */
+            if (strcmp(mount->mnt_type, "zfs") != 0) {
+                continue;
+            }
+        }
+
+        ret = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, mount->mnt_dir);
+        if (ret == -1) {
+            log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\"\n", mount->mnt_dir);
+        }
+        log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_read_write_execute) on \"%s\"\n", mount->mnt_dir);
+
+        #ifdef FAN_REPORT_DFID_NAME
+        ret = fanotify_mark(m_box->fan_fd_create_delete_move, mark_mode, event_mask_create_delete_move, AT_FDCWD, mount->mnt_dir);
+        if (ret == -1) {
+            log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\"\n", mount->mnt_dir);
+        }
+        log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_create_delete_move) on \"%s\"\n", mount->mnt_dir);
+        #endif
+
     }
 
-    #ifdef FAN_REPORT_DFID_NAME
-    wd = fanotify_mark(m_box->fan_fd_create_delete_move, mark_mode, event_mask_create_delete_move, AT_FDCWD, "/");
-    if (wd == -1) {
-        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"/\"\n");
-    }
-    #endif
+    endmntent (mounts);
 }
-#endif 
+#endif
+
