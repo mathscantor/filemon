@@ -7,6 +7,7 @@
 #include <fstab.h>
 #include <sys/stat.h> 
 #include <sys/utsname.h>
+#include "logger.h"
 
 #ifndef WRAPPER_H
 #define WRAPPER_H
@@ -125,6 +126,7 @@ int has_config_fanotify() {
     // Get the kernel version
     if (uname(&uname_data) != 0) {
         perror("uname");
+        log_message(ERROR, 1, "Unable to get kernel version.");
         return 0;
     }
 
@@ -134,7 +136,7 @@ int has_config_fanotify() {
     // Open the file for reading
     file = fopen(filepath, "r");
     if (file == NULL) {
-        perror("fopen");
+        log_message(ERROR, 1, "Unable to open: \"/boot/config-%s\"", uname_data.release);
         return 0;
     }
 
@@ -144,10 +146,12 @@ int has_config_fanotify() {
             #ifndef CONFIG_FANOTIFY_ENABLED
             #define CONFIG_FANOTIFY_ENABLED
             #endif
+            log_message(DEBUG, 1, "CONFIG_FANOTIFY Enabled: " GREEN_TICK "\n");
             fclose(file);
             return 1;
         }
     }
+    log_message(DEBUG, 1, "CONFIG_FANOTIFY Enabled: " RED_CROSS "\n");
     fclose(file);
     return 0;
 }
@@ -186,10 +190,12 @@ int has_config_fanotify_access_perms() {
             #ifndef CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
             #define CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
             #endif
+            log_message(DEBUG, 1, "CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: " GREEN_TICK "\n");
             fclose(file);
             return 1;
         }
     }
+    log_message(DEBUG, 1, "CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: " RED_CROSS "\n");
     fclose(file);
     return 0;
 }

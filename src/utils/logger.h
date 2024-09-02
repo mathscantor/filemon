@@ -6,6 +6,9 @@
 #include <time.h>
 #include <sys/time.h>
 
+#define GREEN_TICK "\x1b[92m\u2714\x1b[0m"
+#define RED_CROSS "\x1b[91m\u2718\x1b[0m"
+
 typedef enum {
     DEBUG,
     INFO,

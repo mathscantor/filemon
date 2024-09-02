@@ -10,6 +10,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <regex.h>
+#include <sys/inotify.h>
 #include "wrappers.h"
 #include "logger.h"
 
@@ -80,7 +81,7 @@ static uint64_t event_mask_read_write_execute =
     #ifdef FAN_CLOSE_NOWRITE
     FAN_CLOSE_NOWRITE |
     #endif
-
+    
     #ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
         #ifdef FAN_OPEN_PERM
         FAN_OPEN_PERM |
@@ -524,12 +525,13 @@ void stop_monitor(monitor_box_t* m_box){
  * @param m_box The monitor box.
  */
 void print_box(monitor_box_t* m_box) {
-    
+    log_message(DEBUG, 1, "=============== Monitor Box ==============\n");
     log_message(DEBUG, 1, "Parent Path: %s\n", m_box->parent_path);
     log_message(DEBUG, 1, "Mount Path: %s\n", m_box->mount_path);
     log_message(DEBUG, 1, "Exclude Pattern: %s\n", m_box->exclude_pattern);
     log_message(DEBUG, 1, "Fanotify Read, Write, Execute FD: %d\n", m_box->fan_fd_read_write_execute);
     log_message(DEBUG, 1, "Fanotify Create, Delete, Move FD: %d\n", m_box->fan_fd_create_delete_move);
+    log_message(DEBUG, 1, "===========================================\n");
     return;
 }
 
@@ -550,16 +552,16 @@ void apply_fanotify_marks(monitor_box_t* m_box) {
 
     ret = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, m_box->mount_path);
     if (ret == -1) {
-        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\"\n", m_box->mount_path);
+        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\" mount\n", m_box->mount_path);
     }
-    log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_read_write_execute) on \"%s\"\n", m_box->mount_path);
+    log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_read_write_execute) on \"%s\" mount\n", m_box->mount_path);
 
     #ifdef FAN_REPORT_DFID_NAME
     ret = fanotify_mark(m_box->fan_fd_create_delete_move, mark_mode, event_mask_create_delete_move, AT_FDCWD, m_box->mount_path);
     if (ret == -1) {
-        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\"\n", m_box->mount_path);
+        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\" mount\n", m_box->mount_path);
     }
-    log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_create_delete_move) on \"%s\"\n", m_box->mount_path);
+    log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_create_delete_move) on \"%s\" mount\n", m_box->mount_path);
     #endif
 }
 #endif

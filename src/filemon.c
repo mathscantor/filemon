@@ -88,14 +88,14 @@ int main(int argc, char* argv[]) {
     }
 
     // Check if CONFIG_FANOTIFY=y
-    if (!has_config_fanotify()) {
+    if (has_config_fanotify()) {
+        // Check if CONFIG_FANOTIFY_ACCESS_PERMS=y
+        if (!has_config_fanotify_access_perms()) {
+            log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
+        }
+    } else {
         log_message(ERROR, 1, "Either kernel was built with CONFIG_FANOTIFY=n or CONFIG_FANOTIFY option does not exist!\n");
         exit(EXIT_FAILURE);
-    }
-
-    // Check if CONFIG_FANOTIFY_ACCESS_PERMS=y
-    if (!has_config_fanotify_access_perms()) {
-        log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Disabling permission hooks\n");
     }
 
     m_box = init_monitor_box(posarg_directory, oopts_exclude_pattern);
