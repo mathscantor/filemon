@@ -22,6 +22,8 @@ typedef struct {
     int fd_create_delete_move;
     uint64_t event_mask_create_delete_move;
     uint64_t event_mask_read_write_execute;
+    int config_fanotify_enabled;
+    int config_fanotify_access_permissions_enabled;
 } fanotify_info_t;
 
 typedef struct {
@@ -63,88 +65,105 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         log_message(ERROR, 1, "Failed to allocate memory to monitoring box\n");
         exit(EXIT_FAILURE);
     }
+
+    // Check if CONFIG_FANOTIFY=y
+    if (has_config_fanotify()) {
+        // Check if CONFIG_FANOTIFY_ACCESS_PERMS=y
+        m_box->fanotify_info.config_fanotify_enabled = 1;
+        if (!has_config_fanotify_access_perms()) {
+            m_box->fanotify_info.config_fanotify_access_permissions_enabled = 1;
+            log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
+        }
+    } else {
+        m_box->fanotify_info.config_fanotify_enabled = 0;
+        m_box->fanotify_info.config_fanotify_access_permissions_enabled = 0;
+        log_message(ERROR, 1, "Either kernel was built with CONFIG_FANOTIFY=n or CONFIG_FANOTIFY option does not exist!\n");
+        exit(EXIT_FAILURE);
+    }
     
     // Populate the struct with appropriate values
-    m_box->fanotify_info.fd_read_write_execute = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE);
-    if (m_box->fanotify_info.fd_read_write_execute == -1) {
-        log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE\n");
-        exit(EXIT_FAILURE);
-    } 
-    m_box->fanotify_info.event_mask_read_write_execute = (   
-        #ifdef FAN_ACCESS
-        FAN_ACCESS | 
-        #endif
+    if (m_box->fanotify_info.config_fanotify_enabled) {
+        m_box->fanotify_info.fd_read_write_execute = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE);
+        if (m_box->fanotify_info.fd_read_write_execute == -1) {
+            log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE\n");
+            exit(EXIT_FAILURE);
+        } 
+        m_box->fanotify_info.event_mask_read_write_execute = (   
+            #ifdef FAN_ACCESS
+            FAN_ACCESS | 
+            #endif
 
-        #ifdef FAN_OPEN
-        FAN_OPEN |
-        #endif
+            #ifdef FAN_OPEN
+            FAN_OPEN |
+            #endif
 
-        #ifdef FAN_MODIFY
-        FAN_MODIFY |
-        #endif
+            #ifdef FAN_MODIFY
+            FAN_MODIFY |
+            #endif
 
-        #ifdef FAN_OPEN_EXEC
-        FAN_OPEN_EXEC |
-        #endif
+            #ifdef FAN_OPEN_EXEC
+            FAN_OPEN_EXEC |
+            #endif
 
-        #ifdef FAN_CLOSE_WRITE
-        FAN_CLOSE_WRITE | 
-        #endif
+            #ifdef FAN_CLOSE_WRITE
+            FAN_CLOSE_WRITE | 
+            #endif
 
-        #ifdef FAN_CLOSE_NOWRITE
-        FAN_CLOSE_NOWRITE |
-        #endif
-        
-        #ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
+            #ifdef FAN_CLOSE_NOWRITE
+            FAN_CLOSE_NOWRITE |
+            #endif
+
+            FAN_EVENT_ON_CHILD
+        ); 
+        if (m_box->fanotify_info.config_fanotify_access_permissions_enabled) {
             #ifdef FAN_OPEN_PERM
-            FAN_OPEN_PERM |
+            m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_PERM;
             #endif
         
             #ifdef FAN_ACCESS_PERM
-            FAN_ACCESS_PERM |
+            m_box->fanotify_info.event_mask_read_write_execute |= FAN_ACCESS_PERM;
             #endif
 
             #ifdef FAN_OPEN_EXEC_PERM
-            FAN_OPEN_EXEC_PERM |
+            m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_EXEC_PERM;
             #endif
+        }
+
+        #ifdef FAN_REPORT_DFID_NAME
+        m_box->fanotify_info.fd_create_delete_move = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
+        if (m_box->fanotify_info.fd_create_delete_move == -1) {
+            log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR)\n");
+            exit(EXIT_FAILURE);
+        }
+        m_box->fanotify_info.event_mask_create_delete_move = (
+            #ifdef FAN_CREATE
+            FAN_CREATE |
+            #endif
+            
+            #ifdef FAN_DELETE
+            FAN_DELETE |
+            #endif
+
+            #ifdef FAN_RENAME 
+            FAN_RENAME |
+            #endif 
+
+            #ifdef FAN_MOVED_FROM
+            FAN_MOVED_FROM |
+            #endif
+
+            #ifdef FAN_MOVED_TO
+            FAN_MOVED_TO |
+            #endif
+
+            FAN_ONDIR
+        );
+        #else
+        m_box->fanotify_info.fd_create_delete_move = -1;
+        m_box->fanotify_info.event_mask_create_delete_move = 0;
         #endif
-
-        FAN_EVENT_ON_CHILD
-    ); 
-
-    #ifdef FAN_REPORT_DFID_NAME
-    m_box->fanotify_info.fd_create_delete_move = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
-    if (m_box->fanotify_info.fd_create_delete_move == -1) {
-        log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR)\n");
-        exit(EXIT_FAILURE);
     }
-    m_box->fanotify_info.event_mask_create_delete_move = (
-        #ifdef FAN_CREATE
-        FAN_CREATE |
-        #endif
-        
-        #ifdef FAN_DELETE
-        FAN_DELETE |
-        #endif
-
-        #ifdef FAN_RENAME 
-        FAN_RENAME |
-        #endif 
-
-        #ifdef FAN_MOVED_FROM
-        FAN_MOVED_FROM |
-        #endif
-
-        #ifdef FAN_MOVED_TO
-        FAN_MOVED_TO |
-        #endif
-
-        FAN_ONDIR
-    );
-    #else
-    m_box->fanotify_info.fd_create_delete_move = -1;
-    m_box->fanotify_info.event_mask_create_delete_move = 0;
-    #endif
+    
     if (!path_exists(parent_path)) {
         log_message(ERROR, 1, "Directory path does not exist: %s\n", parent_path);
         exit(EXIT_FAILURE);
@@ -233,34 +252,34 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             char *full_path = get_path_from_fd(metadata->fd);
             char flags[256];
 
-            #ifdef CONFIG_FANOTIFY_ACCESS_PERMISSIONS_ENABLED
-            #ifdef FAN_OPEN_PERM
-            if (metadata->mask & FAN_OPEN_PERM) {
-                response.fd = metadata->fd;
-                response.response = FAN_ALLOW;
-                write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
-                strncat(flags, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
-            }
-            #endif
-            
-            #ifdef FAN_ACCESS_PERM
-            if (metadata->mask & FAN_ACCESS_PERM) {
-                response.fd = metadata->fd;
-                response.response = FAN_ALLOW;
-                write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
-                strncat(flags, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
-            }
-            #endif
+            if (m_box->fanotify_info.config_fanotify_access_permissions_enabled) {
+                #ifdef FAN_OPEN_PERM
+                if (metadata->mask & FAN_OPEN_PERM) {
+                    response.fd = metadata->fd;
+                    response.response = FAN_ALLOW;
+                    write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
+                    strncat(flags, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
+                }
+                #endif
+                
+                #ifdef FAN_ACCESS_PERM
+                if (metadata->mask & FAN_ACCESS_PERM) {
+                    response.fd = metadata->fd;
+                    response.response = FAN_ALLOW;
+                    write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
+                    strncat(flags, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
+                }
+                #endif
 
-            #ifdef FAN_OPEN_EXEC_PERM
-            if (metadata->mask & FAN_OPEN_EXEC_PERM) {
-                response.fd = metadata->fd;
-                response.response = FAN_ALLOW;
-                write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
-                strncat(flags, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
+                #ifdef FAN_OPEN_EXEC_PERM
+                if (metadata->mask & FAN_OPEN_EXEC_PERM) {
+                    response.fd = metadata->fd;
+                    response.response = FAN_ALLOW;
+                    write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
+                    strncat(flags, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
+                }
+                #endif
             }
-            #endif
-            #endif
 
             #ifdef FAN_ACCESS
             if (metadata->mask & FAN_ACCESS) {
@@ -552,14 +571,16 @@ void apply_fanotify_marks(monitor_box_t* m_box) {
 
     ret = fanotify_mark(m_box->fanotify_info.fd_read_write_execute, mark_mode, m_box->fanotify_info.event_mask_read_write_execute, AT_FDCWD, m_box->mount_path);
     if (ret == -1) {
-        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\" mount\n", m_box->mount_path);
+        log_message(ERROR, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\" mount\n", m_box->mount_path);
+        exit(EXIT_FAILURE);
     }
     log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_read_write_execute) on \"%s\" mount\n", m_box->mount_path);
 
     #ifdef FAN_REPORT_DFID_NAME
     ret = fanotify_mark(m_box->fanotify_info.fd_create_delete_move, mark_mode, m_box->fanotify_info.event_mask_create_delete_move, AT_FDCWD, m_box->mount_path);
     if (ret == -1) {
-        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\" mount\n", m_box->mount_path);
+        log_message(ERROR, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\" mount\n", m_box->mount_path);
+        exit(EXIT_FAILURE);
     }
     log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_create_delete_move) on \"%s\" mount\n", m_box->mount_path);
     #endif
