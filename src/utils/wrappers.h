@@ -55,7 +55,7 @@ char* get_comm_from_pid(int pid){
 
     if (comm_file == NULL) {
         // unknown because the short-lived process already finished before we can even get the name
-        return "unknown";
+        return "unknown-process";
     }
 
     if (fgets(comm, sizeof(comm), comm_file)) {
@@ -63,16 +63,28 @@ char* get_comm_from_pid(int pid){
     }
     close(fileno(comm_file));
     if (comm[0] == '\0' || comm[0] == ' ') {
-        return "unknown";
+        return "unknown-process";
     }
     return comm;
 }
 
+/**
+ * @brief Checks if a file/directory path exists.
+ * 
+ * @param path The file/directory path.
+ * @return int 
+ */
 int path_exists(const char* path) {
     struct stat buffer;
     return (stat(path, &buffer) == 0);
 }
 
+/**
+ * @brief Checks if a particular path is a directory.
+ * 
+ * @param path The file/directory path.
+ * @return int 
+ */
 int is_directory(const char* path) {
     struct stat buffer;
     if (stat(path, &buffer) == 0 && S_ISDIR(buffer.st_mode)) {
@@ -81,6 +93,13 @@ int is_directory(const char* path) {
     return 0;
 }
 
+/**
+ * @brief Searches for the regular expression in the haystack. Returns 1 on success, otherwise 0.
+ * 
+ * @param expr The compiled regular expression.
+ * @param haystack A string blob.
+ * @return int 
+ */
 int regex_search(regex_t expr, const char* haystack) {
 
     int ret;
@@ -91,6 +110,11 @@ int regex_search(regex_t expr, const char* haystack) {
     return 0;
 }
 
+/**
+ * @brief Checks if CONFIG_FANOTIFY is enabled. Returns 1 on success, otherwise 0.
+ * 
+ * @return int 
+ */
 int has_config_fanotify() {
     struct utsname uname_data;
     FILE *file;
@@ -128,6 +152,11 @@ int has_config_fanotify() {
     return 0;
 }
 
+/**
+ * @brief Checks if CONFIG_FANOTIFY_ACCESS_PERMISSIONS is enabled. Returns 1 on sucess, otherwise 0.
+ * 
+ * @return int 
+ */
 int has_config_fanotify_access_perms() {
     struct utsname uname_data;
     FILE *file;
@@ -165,6 +194,12 @@ int has_config_fanotify_access_perms() {
     return 0;
 }
 
+/**
+ * @brief Get the full path given any path.
+ * 
+ * @param path 
+ * @return char* 
+ */
 char* get_full_path(const char *path) {
     char *resolved_path = malloc(PATH_MAX);
     if (resolved_path == NULL) {
@@ -181,6 +216,12 @@ char* get_full_path(const char *path) {
     return resolved_path;
 }
 
+/**
+ * @brief Get the mount information of a given path.
+ * 
+ * @param path 
+ * @return struct fstab* 
+ */
 struct fstab *getfssearch(const char *path) {
     /* stat the file in question */
     struct stat path_stat;

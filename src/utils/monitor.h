@@ -10,7 +10,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <regex.h>
-#include <mntent.h>
 #include "wrappers.h"
 #include "logger.h"
 
