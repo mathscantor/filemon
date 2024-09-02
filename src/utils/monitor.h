@@ -165,7 +165,7 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
 
     struct fstab* fs = getfssearch(m_box->parent_path);
     if (fs == NULL) {
-        log_message(ERROR, 1, "Could not get mount point of \"%s\"\n", m_box->parent_path);
+        log_message(ERROR, 1, "Could not get mount point of \"%s\" via fstab.\n", m_box->parent_path);
         exit(EXIT_FAILURE);
     }
     strncpy(m_box->mount_path, fs->fs_file, PATH_MAX);
