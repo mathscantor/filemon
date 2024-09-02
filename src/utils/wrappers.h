@@ -4,6 +4,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <regex.h>
+#include <fstab.h>
+#include <sys/stat.h> 
 #include <sys/utsname.h>
 
 #ifndef WRAPPER_H
@@ -16,6 +18,7 @@ int is_directory(const char* path);
 int regex_search(regex_t expr, const char* haystack );
 int has_config_fanotify();
 int has_config_fanotify_access_perms();
+char* get_full_path(const char *path);
 
 /**
  * @brief Get the path from fd object
@@ -161,4 +164,42 @@ int has_config_fanotify_access_perms() {
     fclose(file);
     return 0;
 }
+
+char* get_full_path(const char *path) {
+    char *resolved_path = malloc(PATH_MAX);
+    if (resolved_path == NULL) {
+        perror("malloc");
+        return NULL;
+    }
+
+    if (realpath(path, resolved_path) == NULL) {
+        perror("realpath");
+        free(resolved_path);
+        return NULL;
+    }
+
+    return resolved_path;
+}
+
+struct fstab *getfssearch(const char *path) {
+    /* stat the file in question */
+    struct stat path_stat;
+    stat(path, &path_stat);
+
+    /* iterate through the list of devices */
+    struct fstab *fs = NULL;
+    while( (fs = getfsent()) ) {
+        /* stat the mount point */
+        struct stat dev_stat;
+        stat(fs->fs_file, &dev_stat);
+
+        /* check if our file and the mount point are on the same device */
+        if( dev_stat.st_dev == path_stat.st_dev ) {
+            break;
+        }
+    }
+    endfsent();
+    return fs;
+}
+
 #endif

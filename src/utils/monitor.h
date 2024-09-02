@@ -21,6 +21,7 @@ typedef struct {
     int fan_fd_read_write_execute;
     int fan_fd_create_delete_move;
     char parent_path[PATH_MAX];
+    char mount_path[PATH_MAX];
     char exclude_pattern[1024];
     regex_t exclude_regex;
 } monitor_box_t;
@@ -161,7 +162,14 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
             exit(EXIT_FAILURE);
         }
     }
-    strncpy(m_box->parent_path, parent_path, PATH_MAX);
+    strncpy(m_box->parent_path, get_full_path(parent_path), PATH_MAX);
+
+    struct fstab* fs = getfssearch(m_box->parent_path);
+    if (fs == NULL) {
+        log_message(ERROR, 1, "Could not get mount point of \"%s\"\n", m_box->parent_path);
+        exit(EXIT_FAILURE);
+    }
+    strncpy(m_box->mount_path, fs->fs_file, PATH_MAX);
     return m_box;
 }
 
@@ -342,7 +350,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
         metadata = (struct fanotify_event_metadata*)&buf;
         while (FAN_EVENT_OK(metadata, buflen)) {
             char* comm = get_comm_from_pid(metadata->pid);
-            mount_fd = open(m_box->parent_path, O_DIRECTORY | O_RDONLY);
+            mount_fd = open(m_box->mount_path, O_DIRECTORY | O_RDONLY);
             if (mount_fd == -1) {
                 log_message(ERROR, 1, "Failed to open %s\n", m_box->parent_path);
                 stop_monitor(m_box);
@@ -519,9 +527,10 @@ void stop_monitor(monitor_box_t* m_box){
 void print_box(monitor_box_t* m_box) {
     
     log_message(DEBUG, 1, "Parent Path: %s\n", m_box->parent_path);
-    log_message(DEBUG, 1, "exclude_pattern: %s\n", m_box->exclude_pattern);
-    log_message(DEBUG, 1, "fan_fd_read_write_execute: %d\n", m_box->fan_fd_read_write_execute);
-    log_message(DEBUG, 1, "fan_fd_create_delete_move: %d\n", m_box->fan_fd_create_delete_move);
+    log_message(DEBUG, 1, "Mount Path: %s\n", m_box->mount_path);
+    log_message(DEBUG, 1, "Exclude Pattern: %s\n", m_box->exclude_pattern);
+    log_message(DEBUG, 1, "Fanotify Read, Write, Execute FD: %d\n", m_box->fan_fd_read_write_execute);
+    log_message(DEBUG, 1, "Fanotify Create, Delete, Move FD: %d\n", m_box->fan_fd_create_delete_move);
     return;
 }
 
@@ -533,8 +542,6 @@ void print_box(monitor_box_t* m_box) {
 void apply_fanotify_marks(monitor_box_t* m_box) {
 
     int ret;
-    FILE* mounts;
-    struct mntent* mount;
 
     #ifdef FAN_MARK_FILESYSTEM
     int mark_mode = FAN_MARK_ADD | FAN_MARK_FILESYSTEM;
@@ -542,47 +549,19 @@ void apply_fanotify_marks(monitor_box_t* m_box) {
     int mark_mode = FAN_MARK_ADD | FAN_MARK_MOUNT;
     #endif
 
-    mounts = setmntent ("/proc/mounts", "r");
-    if (mounts == NULL)
-        log_message(ERROR, 1, "setmntent: unable to read \"/proc/mounts\"");
-    while ((mount = getmntent (mounts)) != NULL) {
-        /* Only consider mounts which have an actual device or bind mount
-         * point. The others are stuff like proc, sysfs, binfmt_misc etc. which
-         * are virtual and do not actually cause disk access. */
-        if (mount->mnt_fsname == NULL || access (mount->mnt_dir, F_OK) != 0) {
-            continue;
-        }
-
-        log_message(DEBUG, 1, "fsname: %s dir: %s type: %s\n", mount->mnt_fsname, mount->mnt_dir, mount->mnt_type);
-        if (strncmp(mount->mnt_type, "proc", 4) == 0 || strncmp(mount->mnt_type, "sysfs", 5) == 0 
-        || strncmp(mount->mnt_type, "binfmt_misc", 11) == 0 || strncmp(mount->mnt_type, "nsfs", 4) == 0
-        || strncmp(mount->mnt_type, "hugetlbfs", 9) == 0 || strncmp(mount->mnt_type, "fusectl", 7) == 0
-        || strncmp(mount->mnt_type, "mqueue", 6) == 0 || strncmp(mount->mnt_type, "debugfs", 7) == 0
-        || strncmp(mount->mnt_type, "pstore", 6) == 0 || strncmp(mount->mnt_type, "efivarfs", 8) == 0
-        || strncmp(mount->mnt_type, "bpf", 3) == 0 || strncmp(mount->mnt_type, "autofs", 6) == 0
-        || strncmp(mount->mnt_type, "ramfs", 5) == 0 || strncmp(mount->mnt_type, "tracefs", 7) == 0
-        || strncmp(mount->mnt_type, "configfs", 8) == 0 || strncmp(mount->mnt_type, "securityfs", 10) == 0
-        || strncmp(mount->mnt_type, "devpts", 6) == 0){
-            continue;
-        }
-
-        ret = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, mount->mnt_dir);
-        if (ret == -1) {
-            log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\"\n", mount->mnt_dir);
-        }
-        log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_read_write_execute) on \"%s\"\n", mount->mnt_dir);
-
-        #ifdef FAN_REPORT_DFID_NAME
-        ret = fanotify_mark(m_box->fan_fd_create_delete_move, mark_mode, event_mask_create_delete_move, AT_FDCWD, mount->mnt_dir);
-        if (ret == -1) {
-            log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\"\n", mount->mnt_dir);
-        }
-        log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_create_delete_move) on \"%s\"\n", mount->mnt_dir);
-        #endif
-
+    ret = fanotify_mark(m_box->fan_fd_read_write_execute, mark_mode, event_mask_read_write_execute, AT_FDCWD, m_box->mount_path);
+    if (ret == -1) {
+        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_read_write_execute) on \"%s\"\n", m_box->mount_path);
     }
+    log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_read_write_execute) on \"%s\"\n", m_box->mount_path);
 
-    endmntent (mounts);
+    #ifdef FAN_REPORT_DFID_NAME
+    ret = fanotify_mark(m_box->fan_fd_create_delete_move, mark_mode, event_mask_create_delete_move, AT_FDCWD, m_box->mount_path);
+    if (ret == -1) {
+        log_message(WARNING, 1, "Failed to apply fanotify mark (event_mask_create_delete_move) on \"%s\"\n", m_box->mount_path);
+    }
+    log_message(DEBUG, 1, "Successfully applied fanotify mark (event_mask_create_delete_move) on \"%s\"\n", m_box->mount_path);
+    #endif
 }
 #endif
 
