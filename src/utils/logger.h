@@ -10,6 +10,7 @@
 #define RED_CROSS "\x1b[91m\u2718\x1b[0m"
 
 typedef enum {
+    NIL,
     DEBUG,
     INFO,
     WARNING,
@@ -27,6 +28,7 @@ void logger_init(int verbosity_level, char* logfile);
 void log_message(Severity sev, int show_time, const char *format, ...);
 
 const char *severity_colors[] = {
+    "",                        // NIL
     "\x1b[94m[DBG]\x1b[0m ",   // DEBUG
     "\x1b[92m[INF]\x1b[0m ",   // INFO
     "\x1b[93m[WRN]\x1b[0m ",   // WARNING
@@ -109,7 +111,7 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
         va_end(args);
     } else {
         if (show_time) {
-            printf("%02d-%02d-%04d %02d:%02d:%02d.%03d UTC%s:00%-4s",
+            printf("%02d-%02d-%04d %02d:%02d:%02d.%03d UTC%s:00%4s",
                 local_time->tm_mday,
                 local_time->tm_mon + 1,
                 local_time->tm_year + 1900,

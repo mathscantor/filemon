@@ -143,12 +143,10 @@ int has_config_fanotify() {
     // Search for the string in the file
     while (fgets(line, sizeof(line), file)) {
         if (strstr(line, search_str)) {
-            log_message(DEBUG, 1, "CONFIG_FANOTIFY Enabled: " GREEN_TICK "\n");
             fclose(file);
             return 1;
         }
     }
-    log_message(DEBUG, 1, "CONFIG_FANOTIFY Enabled: " RED_CROSS "\n");
     fclose(file);
     return 0;
 }
@@ -184,12 +182,10 @@ int has_config_fanotify_access_perms() {
     // Search for the string in the file
     while (fgets(line, sizeof(line), file)) {
         if (strstr(line, search_str)) {
-            log_message(DEBUG, 1, "CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: " GREEN_TICK "\n");
             fclose(file);
             return 1;
         }
     }
-    log_message(DEBUG, 1, "CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: " RED_CROSS "\n");
     fclose(file);
     return 0;
 }

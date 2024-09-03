@@ -22,6 +22,8 @@ typedef struct {
     int fd_create_delete_move;
     uint64_t event_mask_create_delete_move;
     uint64_t event_mask_read_write_execute;
+    char flags_read_write_execute[1024];
+    char flags_create_delete_move[1024];
     int config_fanotify_enabled;
     int config_fanotify_access_permissions_enabled;
 } fanotify_info_t;
@@ -66,68 +68,72 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         exit(EXIT_FAILURE);
     }
 
-    // Check if CONFIG_FANOTIFY=y
-    if (has_config_fanotify()) {
-        // Check if CONFIG_FANOTIFY_ACCESS_PERMS=y
-        m_box->fanotify_info.config_fanotify_enabled = 1;
-        if (!has_config_fanotify_access_perms()) {
-            m_box->fanotify_info.config_fanotify_access_permissions_enabled = 1;
-            log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
-        }
-    } else {
-        m_box->fanotify_info.config_fanotify_enabled = 0;
-        m_box->fanotify_info.config_fanotify_access_permissions_enabled = 0;
-        log_message(ERROR, 1, "Either kernel was built with CONFIG_FANOTIFY=n or CONFIG_FANOTIFY option does not exist!\n");
-        exit(EXIT_FAILURE);
-    }
+    // Assign Default Values First
+    m_box->fanotify_info.fd_read_write_execute = -1; 
+    m_box->fanotify_info.fd_create_delete_move = -1;  
+    m_box->fanotify_info.event_mask_create_delete_move = 0;
+    m_box->fanotify_info.event_mask_read_write_execute = 0;
+    m_box->fanotify_info.config_fanotify_enabled = has_config_fanotify();
+    m_box->fanotify_info.config_fanotify_access_permissions_enabled = has_config_fanotify_access_perms();
     
-    // Populate the struct with appropriate values
     if (m_box->fanotify_info.config_fanotify_enabled) {
         m_box->fanotify_info.fd_read_write_execute = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE);
         if (m_box->fanotify_info.fd_read_write_execute == -1) {
             log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE\n");
             exit(EXIT_FAILURE);
         } 
-        m_box->fanotify_info.event_mask_read_write_execute = (   
-            #ifdef FAN_ACCESS
-            FAN_ACCESS | 
-            #endif
+        m_box->fanotify_info.event_mask_read_write_execute = FAN_EVENT_ON_CHILD;  
 
-            #ifdef FAN_OPEN
-            FAN_OPEN |
-            #endif
+        #ifdef FAN_ACCESS
+        m_box->fanotify_info.event_mask_read_write_execute |= FAN_ACCESS;
+        strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_ACCESS, ", strlen("FAN_ACCESS, ") + 1);
+        #endif
 
-            #ifdef FAN_MODIFY
-            FAN_MODIFY |
-            #endif
+        #ifdef FAN_OPEN
+        m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN;
+        strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN, ", strlen("FAN_OPEN, ") + 1);
+        #endif
 
-            #ifdef FAN_OPEN_EXEC
-            FAN_OPEN_EXEC |
-            #endif
+        #ifdef FAN_MODIFY
+        m_box->fanotify_info.event_mask_read_write_execute |= FAN_MODIFY;
+        strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_MODIFY, ", strlen("FAN_MODIFY, ") + 1);
+        #endif
 
-            #ifdef FAN_CLOSE_WRITE
-            FAN_CLOSE_WRITE | 
-            #endif
+        #ifdef FAN_OPEN_EXEC
+        m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_EXEC;
+        strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_EXEC, ", strlen("FAN_OPEN_EXEC, ") + 1);
+        #endif
 
-            #ifdef FAN_CLOSE_NOWRITE
-            FAN_CLOSE_NOWRITE |
-            #endif
+        #ifdef FAN_CLOSE_WRITE
+        m_box->fanotify_info.event_mask_read_write_execute |= FAN_CLOSE_WRITE;
+        strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_CLOSE_WRITE, ", strlen("FAN_CLOSE_WRITE, ") + 1);
+        #endif
 
-            FAN_EVENT_ON_CHILD
-        ); 
+        #ifdef FAN_CLOSE_NOWRITE
+        m_box->fanotify_info.event_mask_read_write_execute |= FAN_CLOSE_NOWRITE;
+        strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_CLOSE_NOWRITE, ", strlen("FAN_CLOSE_NOWRITE, ") + 1);
+        #endif
+
         if (m_box->fanotify_info.config_fanotify_access_permissions_enabled) {
             #ifdef FAN_OPEN_PERM
             m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_PERM;
+            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
             #endif
         
             #ifdef FAN_ACCESS_PERM
             m_box->fanotify_info.event_mask_read_write_execute |= FAN_ACCESS_PERM;
+            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
             #endif
 
             #ifdef FAN_OPEN_EXEC_PERM
             m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_EXEC_PERM;
+            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
             #endif
+        } else {
+            log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
         }
+
+        m_box->fanotify_info.flags_read_write_execute[strlen(m_box->fanotify_info.flags_read_write_execute) - 2] = '\0';
 
         #ifdef FAN_REPORT_DFID_NAME
         m_box->fanotify_info.fd_create_delete_move = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
@@ -135,33 +141,38 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
             log_message(ERROR, 1, "Failed to fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR)\n");
             exit(EXIT_FAILURE);
         }
-        m_box->fanotify_info.event_mask_create_delete_move = (
-            #ifdef FAN_CREATE
-            FAN_CREATE |
-            #endif
-            
-            #ifdef FAN_DELETE
-            FAN_DELETE |
-            #endif
+        m_box->fanotify_info.event_mask_create_delete_move = FAN_ONDIR;
 
-            #ifdef FAN_RENAME 
-            FAN_RENAME |
-            #endif 
-
-            #ifdef FAN_MOVED_FROM
-            FAN_MOVED_FROM |
-            #endif
-
-            #ifdef FAN_MOVED_TO
-            FAN_MOVED_TO |
-            #endif
-
-            FAN_ONDIR
-        );
-        #else
-        m_box->fanotify_info.fd_create_delete_move = -1;
-        m_box->fanotify_info.event_mask_create_delete_move = 0;
+        #ifdef FAN_CREATE
+        m_box->fanotify_info.event_mask_create_delete_move |= FAN_CREATE;
+        strncat(m_box->fanotify_info.flags_create_delete_move, "FAN_CREATE, ", strlen("FAN_CREATE, ") + 1);
         #endif
+        
+        #ifdef FAN_DELETE
+        m_box->fanotify_info.event_mask_create_delete_move |= FAN_DELETE;
+        strncat(m_box->fanotify_info.flags_create_delete_move, "FAN_DELETE, ", strlen("FAN_DELETE, ") + 1);
+        #endif
+
+        #ifdef FAN_RENAME 
+        m_box->fanotify_info.event_mask_create_delete_move |= FAN_RENAME;
+        strncat(m_box->fanotify_info.flags_create_delete_move, "FAN_RENAME, ", strlen("FAN_RENAME, ") + 1);
+        #endif 
+
+        #ifdef FAN_MOVED_FROM
+        m_box->fanotify_info.event_mask_create_delete_move |= FAN_MOVED_FROM;
+        strncat(m_box->fanotify_info.flags_create_delete_move, "FAN_MOVED_FROM, ", strlen("FAN_MOVED_FROM, ") + 1);
+        #endif
+
+        #ifdef FAN_MOVED_TO
+        m_box->fanotify_info.event_mask_create_delete_move |=FAN_MOVED_TO;
+        strncat(m_box->fanotify_info.flags_create_delete_move, "FAN_MOVED_TO, ", strlen("FAN_MOVED_TO, ") + 1);
+        #endif
+
+        m_box->fanotify_info.flags_create_delete_move[strlen(m_box->fanotify_info.flags_create_delete_move) - 2] = '\0';
+        #endif  
+    } else {
+        log_message(ERROR, 1, "Either kernel was built with CONFIG_FANOTIFY=n or CONFIG_FANOTIFY option does not exist!\n");
+        exit(EXIT_FAILURE);
     }
     
     if (!path_exists(parent_path)) {
@@ -221,10 +232,10 @@ void begin_monitor(monitor_box_t* m_box) {
         exit(EXIT_FAILURE);
     }
     if (g_logger.logfile[0] != 0) {
-        printf("[+] filemon has started successfully.\n");
+        printf("[+] Successfully started filemon.\n");
         printf("[+] All output is redirected to '%s'\n", g_logger.logfile);
     }
-    log_message(INFO, 1, "filemon has started successfully.\n");
+    log_message(INFO, 1, "Successfully started filemon.\n");
 
     #ifdef FAN_REPORT_DFID_NAME
     pthread_join(thread1, NULL);
@@ -532,9 +543,9 @@ void stop_monitor(monitor_box_t* m_box){
     close(m_box->fanotify_info.fd_create_delete_move);
     free(m_box);
     if (g_logger.logfile[0] != 0) {
-        printf("[+] filemon has stopped successfully\n");
+        printf("[+] Successfully stopped filemon.\n");
     }
-    log_message(INFO, 1, "filemon has stopped successfully.\n");
+    log_message(INFO, 1, "Successfully stopped filemon.\n");
     return;
 }
 
@@ -544,17 +555,24 @@ void stop_monitor(monitor_box_t* m_box){
  * @param m_box The monitor box.
  */
 void print_box(monitor_box_t* m_box) {
-    log_message(DEBUG, 1, "=============== Monitor Box ==============\n");
-    log_message(DEBUG, 1, "Parent Path: %s\n", m_box->parent_path);
-    log_message(DEBUG, 1, "Mount Path: %s\n", m_box->mount_path);
-    log_message(DEBUG, 1, "Exclude Pattern: %s\n", m_box->exclude_pattern);
-    log_message(DEBUG, 1, "Fanotify Read, Write, Execute FD: %d\n", m_box->fanotify_info.fd_read_write_execute);
-    log_message(DEBUG, 1, "Fanotify Create, Delete, Move FD: %d\n", m_box->fanotify_info.fd_create_delete_move);
-    log_message(DEBUG, 1, "===========================================\n");
+    log_message(DEBUG, 1, "Monitor Box Information:\n");
+    log_message(NIL, 0, "============================ MONITOR BOX ===========================\n");
+    log_message(NIL, 0, "- Parent Path: %s\n", m_box->parent_path);
+    log_message(NIL, 0, "- Mount Path: %s\n", m_box->mount_path);
+    log_message(NIL, 0, "- Exclude Pattern: %s\n\n", m_box->exclude_pattern);
+    log_message(NIL, 0, "------------------- FANOTIFY INFO -------------------\n");
+    log_message(NIL, 0, "- CONFIG_FANOTIFY Enabled: %d\n", m_box->fanotify_info.config_fanotify_enabled);
+    log_message(NIL, 0, "- CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: %d\n", m_box->fanotify_info.config_fanotify_access_permissions_enabled);
+    log_message(NIL, 0, "- Fanotify Read, Write, Execute FD: %d\n", m_box->fanotify_info.fd_read_write_execute);
+    log_message(NIL, 0, "\t└─ Flags: %s\n", m_box->fanotify_info.flags_read_write_execute);
+    log_message(NIL, 0, "- Fanotify Create, Delete, Move FD: %d\n", m_box->fanotify_info.fd_create_delete_move);
+    log_message(NIL, 0, "\t└─ Flags: %s\n\n", m_box->fanotify_info.flags_create_delete_move);
+    log_message(NIL, 0, "=====================================================================\n");
     return;
 }
 
 /**
+
  * @brief FAN_MARK_ADD recursively from path.
  * 
  * @param m_box The monitor box.
