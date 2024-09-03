@@ -122,12 +122,12 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         
             #ifdef FAN_ACCESS_PERM
             m_box->fanotify_info.event_mask_read_write_execute |= FAN_ACCESS_PERM;
-            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
+            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
             #endif
 
             #ifdef FAN_OPEN_EXEC_PERM
             m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_EXEC_PERM;
-            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
+            strncat(m_box->fanotify_info.flags_read_write_execute, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
             #endif
         } else {
             log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
