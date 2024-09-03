@@ -202,7 +202,8 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclu
     if (mount_path == NULL) {
         struct fstab* fs = getfssearch(m_box->parent_path);
         if (fs == NULL) {
-            log_message(ERROR, 1, "Could not get mount point of \"%s\" via fstab.\n", m_box->parent_path);
+            log_message(ERROR, 1, "Could not get mount point of \"%s\" via fstab.\n", m_box->parent_path); 
+            log_message(ERROR, 1, "Consider using 'findmnt -T <PATH>' or 'df <PATH>' to find the mount path and run filemon again with -m option.\n");
             exit(EXIT_FAILURE);
         }
 
