@@ -40,7 +40,7 @@ typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
-monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern);
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclude_pattern);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
@@ -57,7 +57,7 @@ void* handle_read_write_execute_thread(void* arg);
  * @param exclude_pattern Regex pattern to exclude certain path.
  * @return monitor_box_t* 
  */
-monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclude_pattern) {
 
     int ret;
 
@@ -199,12 +199,17 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
     }
     strncpy(m_box->parent_path, get_full_path(parent_path), PATH_MAX);
 
-    struct fstab* fs = getfssearch(m_box->parent_path);
-    if (fs == NULL) {
-        log_message(ERROR, 1, "Could not get mount point of \"%s\" via fstab.\n", m_box->parent_path);
-        exit(EXIT_FAILURE);
+    if (mount_path == NULL) {
+        struct fstab* fs = getfssearch(m_box->parent_path);
+        if (fs == NULL) {
+            log_message(ERROR, 1, "Could not get mount point of \"%s\" via fstab.\n", m_box->parent_path);
+            exit(EXIT_FAILURE);
+        }
+
+        strncpy(m_box->mount_path, fs->fs_file, PATH_MAX);
+    } else {
+        strncpy(m_box->mount_path, mount_path, PATH_MAX);
     }
-    strncpy(m_box->mount_path, fs->fs_file, PATH_MAX);
     return m_box;
 }
 

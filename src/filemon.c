@@ -28,6 +28,7 @@ int main(int argc, char* argv[]) {
         {"verbose", no_argument, 0, 'v'},
         {"exclude-pattern", required_argument, 0, 'e'},
         {"log", required_argument, 0, 'l'},
+        {"mount", required_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
@@ -35,11 +36,12 @@ int main(int argc, char* argv[]) {
     int oopts_verbose = 1;
     char *oopts_exclude_pattern = NULL;
     char *oopts_logfile = NULL;
+    char *oopts_mount = NULL;
     char *posarg_directory = NULL;
 
     int opt;
     int option_index = 0;
-    while ((opt = getopt_long(argc, argv, "hve:l:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hve:l:m:", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 usage();
@@ -53,6 +55,9 @@ int main(int argc, char* argv[]) {
                 break;
             case 'l':
                 oopts_logfile = optarg;
+                break;
+            case 'm':
+                oopts_mount = optarg;
                 break;
             default:
                 usage();
@@ -87,7 +92,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    m_box = init_monitor_box(posarg_directory, oopts_exclude_pattern);
+    m_box = init_monitor_box(posarg_directory, oopts_mount, oopts_exclude_pattern);
     print_box(m_box);    
     begin_monitor(m_box);
 
@@ -113,10 +118,11 @@ void sigint_handler() {
  * 
  */
 void usage(){
-    printf("Usage: filemon [-h|--help] [-v] [-e PATTERN] [-l LOGFILE] DIRECTORY\n");
+    printf("Usage: filemon [-h|--help] [-v] [-e PATTERN] [-l LOGFILE] [-m MOUNT] DIRECTORY\n");
     printf("%-30s %s\n", "-h  | --help", "Show help");
     printf("%-30s %s\n", "-v  | --verbose", "Enables debug logs.");
     printf("%-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
     printf("%-30s %s\n", "-l  | --log", "The path of the log file.");
+    printf("%-30s %s\n", "-m  | --mount", "The mount path. (Use this option to override auto search from fstab)");
     return;
 }
