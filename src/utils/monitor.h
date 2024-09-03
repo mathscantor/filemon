@@ -169,6 +169,9 @@ monitor_box_t* init_monitor_box(char* parent_path, char* exclude_pattern) {
         #endif
 
         m_box->fanotify_info.flags_create_delete_move[strlen(m_box->fanotify_info.flags_create_delete_move) - 2] = '\0';
+        
+        #else
+        log_message(WARNING, 1, "Unable to monitor for the creation, deletion and moving of directories/files.")
         #endif  
     } else {
         log_message(ERROR, 1, "Either kernel was built with CONFIG_FANOTIFY=n or CONFIG_FANOTIFY option does not exist!\n");
