@@ -35,17 +35,10 @@ const char *severity_colors[] = {
     "\x1b[91m[ERR]\x1b[0m "    // ERROR
 };
 
-const char *severity_nocolors[] = {
-    "[DBG] ",   // DEBUG
-    "[INF] ",   // INFO
-    "[WRN] ",   // WARNING
-    "[ERR] "    // ERROR
-};
-
 logger_t g_logger;
 
 /**
- * @brief Initialize the global logger_t g_logger.
+ * @brief 
  * 
  * @param verbosity_level Determines if debug messages will be logged.
  * @param logfile The file path to the log file.

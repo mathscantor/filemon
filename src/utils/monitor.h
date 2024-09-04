@@ -22,25 +22,30 @@ typedef struct {
     int fd_create_delete_move;
     uint64_t event_mask_create_delete_move;
     uint64_t event_mask_read_write_execute;
-    char flags_read_write_execute[1024];
-    char flags_create_delete_move[1024];
+    char flags_read_write_execute[FLAGS_MAX];
+    char flags_create_delete_move[FLAGS_MAX];
     int config_fanotify_enabled;
     int config_fanotify_access_permissions_enabled;
 } fanotify_info_t;
 
 typedef struct {
-    fanotify_info_t fanotify_info;
+    int include_pids[FILTER_MAX];
+    char exclude_pattern[FILTER_MAX];
     regex_t exclude_regex;
+} filters_t;
+
+typedef struct {
+    fanotify_info_t fanotify_info;
+    filters_t filters;
     char parent_path[PATH_MAX];
     char mount_path[PATH_MAX];
-    char exclude_pattern[1024];
 } monitor_box_t;
 
 typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclude_pattern);
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, char* exclude_pattern);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
@@ -57,7 +62,7 @@ void* handle_read_write_execute_thread(void* arg);
  * @param exclude_pattern Regex pattern to exclude certain path.
  * @return monitor_box_t* 
  */
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclude_pattern) {
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, char* exclude_pattern) {
 
     int ret;
 
@@ -68,13 +73,25 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclu
         exit(EXIT_FAILURE);
     }
 
-    // Assign Default Values First
+    /* Assign Default Values First */
+
+    /** Initialized Fanotify Info **/
     m_box->fanotify_info.fd_read_write_execute = -1; 
     m_box->fanotify_info.fd_create_delete_move = -1;  
     m_box->fanotify_info.event_mask_create_delete_move = 0;
     m_box->fanotify_info.event_mask_read_write_execute = 0;
     m_box->fanotify_info.config_fanotify_enabled = has_config_fanotify();
     m_box->fanotify_info.config_fanotify_access_permissions_enabled = has_config_fanotify_access_perms();
+
+    /** Initialize Filters **/
+    memset(m_box->filters.include_pids, 0, sizeof(m_box->filters.include_pids));
+    memset(&m_box->filters.exclude_pattern, 0, sizeof(m_box->filters.exclude_pattern));
+    memset(&m_box->filters.exclude_regex, 0, sizeof(m_box->filters.exclude_regex));
+
+    /** Initialize the rest **/
+    memset(m_box->parent_path, 0, sizeof(m_box->parent_path));
+    memset(m_box->mount_path, 0, sizeof(m_box->parent_path));
+
     
     if (m_box->fanotify_info.config_fanotify_enabled) {
         m_box->fanotify_info.fd_read_write_execute = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE);
@@ -186,19 +203,21 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, char* exclu
         log_message(ERROR, 1, "Stated path is not a directory: %s\n", parent_path);
         exit(EXIT_FAILURE);
     }
-    if (exclude_pattern == NULL) {
-        memset(m_box->exclude_pattern, 0, sizeof(m_box->exclude_pattern));
-        memset(&m_box->exclude_regex, 0, sizeof(m_box->exclude_regex));
-    } else {
-        strncpy(m_box->exclude_pattern, exclude_pattern, sizeof(m_box->exclude_pattern));
-        ret = regcomp(&m_box->exclude_regex, exclude_pattern, REG_EXTENDED);
+    strncpy(m_box->parent_path, get_full_path(parent_path), PATH_MAX);
+
+    if (include_pids[0] != 0) {
+        memcpy(m_box->filters.include_pids, include_pids, FILTER_MAX);
+    }
+
+    if (exclude_pattern) {
+        strncpy(m_box->filters.exclude_pattern, exclude_pattern, sizeof(m_box->filters.exclude_pattern));
+        ret = regcomp(&m_box->filters.exclude_regex, exclude_pattern, REG_EXTENDED);
         if (ret) {
             log_message(ERROR, 1, "Could not compile exclude_regex\n");
             exit(EXIT_FAILURE);
         }
-    }
-    strncpy(m_box->parent_path, get_full_path(parent_path), PATH_MAX);
-
+    } 
+    
     if (mount_path == NULL) {
         struct fstab* fs = getfssearch(m_box->parent_path);
         if (fs == NULL) {
@@ -270,8 +289,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
         while (FAN_EVENT_OK(metadata, buflen)) {
             char *comm = get_comm_from_pid(metadata->pid);
             char *full_path = get_path_from_fd(metadata->fd);
-            char flags[256];
-
+            char flags[FLAGS_MAX];
             if (m_box->fanotify_info.config_fanotify_access_permissions_enabled) {
                 #ifdef FAN_OPEN_PERM
                 if (metadata->mask & FAN_OPEN_PERM) {
@@ -338,15 +356,25 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             #endif
 
             if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
-                flags[0] = '\0';
+                memset(flags, 0, FLAGS_MAX);
                 close(metadata->fd);
                 metadata = FAN_EVENT_NEXT(metadata, buflen);
                 continue;
             }
 
-            if (m_box->exclude_pattern[0] != 0) {
-                if (regex_search(m_box->exclude_regex, full_path)) {
-                    flags[0] = '\0';
+            /* Apply Filters */
+            if (m_box->filters.include_pids[0] != 0) {
+                if (!is_in_int_array(m_box->filters.include_pids, FILTER_MAX, metadata->pid)) {
+                    memset(flags, 0, FLAGS_MAX);
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            }
+
+            if (m_box->filters.exclude_pattern[0] != 0) {
+                if (regex_search(m_box->filters.exclude_regex, full_path)) {
+                    memset(flags, 0, FLAGS_MAX);
                     close(metadata->fd);
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
@@ -355,7 +383,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             
             flags[strlen(flags) - 2] = '\0';
             log_message(INFO, 1, "%s (%d): %s == [%s]\n", comm, metadata->pid, full_path, flags);
-            flags[0] = '\0';
+            memset(flags, 0, FLAGS_MAX);
 
             // Advance to the next event
             close(metadata->fd);
@@ -420,7 +448,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             }
 
             char* path = get_path_from_fd(event_fd);     
-            char flags[256];
+            char flags[FLAGS_MAX];
 
             if (file_name) {
                 snprintf(full_path, sizeof(full_path), "%s/%s", path, file_name);
@@ -474,7 +502,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             #endif
 
             if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
-                flags[0] = '\0';
+                memset(flags, 0, FLAGS_MAX);
                 close(metadata->fd);
                 close(mount_fd);
                 close(event_fd);
@@ -482,9 +510,19 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
                 continue;
             }
 
-            if (m_box->exclude_pattern[0] != 0) {
-                if (regex_search(m_box->exclude_regex, full_path)) {
-                    flags[0] = '\0';
+            /* Apply Filters */
+            if (m_box->filters.include_pids[0] != 0) {
+                if (!is_in_int_array(m_box->filters.include_pids, FILTER_MAX, metadata->pid)) {
+                    memset(flags, 0, FLAGS_MAX);
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            }
+
+            if (m_box->filters.exclude_pattern[0] != 0) {
+                if (regex_search(m_box->filters.exclude_regex, full_path)) {
+                    memset(flags, 0, FLAGS_MAX);
                     close(metadata->fd);
                     close(mount_fd);
                     close(event_fd);
@@ -499,7 +537,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             } else {
                 log_message(INFO, 1, "%s (%d): %s == [%s]\n", comm, metadata->pid, path, flags);
             }
-            flags[0] = '\0';
+            memset(flags, 0, FLAGS_MAX);
             
             close(metadata->fd);
             close(mount_fd);
@@ -564,11 +602,10 @@ void stop_monitor(monitor_box_t* m_box){
  * @param m_box The monitor box.
  */
 void print_box(monitor_box_t* m_box) {
-    log_message(DEBUG, 1, "Monitor Box Information:\n");
+    log_message(INFO, 1, "Monitor Box Information:\n");
     log_message(NIL, 0, "============================ MONITOR BOX ===========================\n");
     log_message(NIL, 0, "- Parent Path: %s\n", m_box->parent_path);
-    log_message(NIL, 0, "- Mount Path: %s\n", m_box->mount_path);
-    log_message(NIL, 0, "- Exclude Pattern: %s\n\n", m_box->exclude_pattern);
+    log_message(NIL, 0, "- Mount Path: %s\n\n", m_box->mount_path);
     log_message(NIL, 0, "------------------- FANOTIFY INFO -------------------\n");
     log_message(NIL, 0, "- CONFIG_FANOTIFY Enabled: %d\n", m_box->fanotify_info.config_fanotify_enabled);
     log_message(NIL, 0, "- CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: %d\n", m_box->fanotify_info.config_fanotify_access_permissions_enabled);
@@ -576,6 +613,9 @@ void print_box(monitor_box_t* m_box) {
     log_message(NIL, 0, "\t└─ Flags: %s\n", m_box->fanotify_info.flags_read_write_execute);
     log_message(NIL, 0, "- Fanotify Create, Delete, Move FD: %d\n", m_box->fanotify_info.fd_create_delete_move);
     log_message(NIL, 0, "\t└─ Flags: %s\n\n", m_box->fanotify_info.flags_create_delete_move);
+    log_message(NIL, 0, "---------------------- FILTERS ----------------------\n");
+    log_message(NIL, 0, "- Include PIDS: %s\n", strcat_int_array(m_box->filters.include_pids, FILTER_MAX));
+    log_message(NIL, 0, "- Exclude Pattern: %s\n\n", m_box->filters.exclude_pattern);
     log_message(NIL, 0, "=====================================================================\n");
     return;
 }

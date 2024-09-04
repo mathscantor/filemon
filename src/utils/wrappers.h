@@ -12,6 +12,9 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H
 
+#define FILTER_MAX 4096
+#define FLAGS_MAX 1024
+
 char* get_path_from_fd(int fd);
 char* get_comm_from_pid(int pid);
 int path_exists(const char* path);
@@ -20,6 +23,9 @@ int regex_search(regex_t expr, const char* haystack );
 int has_config_fanotify();
 int has_config_fanotify_access_perms();
 char* get_full_path(const char *path);
+int is_valid_integer(const char *str);
+char* strcat_int_array(int *array, size_t size);
+int is_in_int_array(int *haystack, size_t size, int needle);
 
 /**
  * @brief Get the path from fd object
@@ -239,4 +245,78 @@ struct fstab *getfssearch(const char *path) {
     return fs;
 }
 
+/**
+ * @brief Pre-check to be used before converting a string into an integer.
+ * 
+ * @param str A string.
+ * @return int 
+ */
+int is_valid_integer(const char *str) {
+    char *endptr;
+    errno = 0;  // To distinguish success/failure after call
+
+    // Convert string to long
+    long val = strtol(str, &endptr, 10);
+
+    // Check for various possible errors
+    if (errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) {
+        return 0;  // Out of range
+    }
+
+    if (errno != 0 && val == 0) {
+        return 0;  // General error
+    }
+
+    if (endptr == str) {
+        return 0;  // No digits were found
+    }
+
+    // If there are extra characters after the number, it's not valid
+    if (*endptr != '\0') {
+        return 0;
+    }
+
+    return 1;
+}
+
+/**
+ * @brief Returns a concatenated string from an array of integers.
+ * 
+ * @param array The integer array.
+ * @return char* 
+ */
+char* strcat_int_array(int *array, size_t size){
+    
+    char* string = malloc(FILTER_MAX + 1);
+    memset(string, 0, FILTER_MAX + 1);
+    int length = 0;
+
+    for(size_t i = 0; i < size; i++) { 
+        if (array[i] == 0)
+            break;
+
+        length = snprintf(NULL, 0, "%d, ", array[i]);
+        char* tmp = malloc(length + 1);
+        snprintf(tmp, length + 1, "%d, ", array[i]);
+        strncat(string, tmp, strlen(tmp) + 1);
+    }
+    string[strlen(string) - 2] = '\0';
+    return string;
+}
+
+/**
+ * @brief Check for existence of integer in an array of integers.
+ * @param haystack The integer array.
+ * @param size The size of the integer array.
+ * @param needle The integer to look for within the integer array.
+ * @return int 
+ */
+int is_in_int_array(int *haystack, size_t size, int needle) {
+    for (size_t i = 0; i < size; i++) {
+        if (needle == haystack[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
 #endif
