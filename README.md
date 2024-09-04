@@ -91,7 +91,7 @@ This option is great when you are dealing with a directory that contains many fi
 
 ### Example 3 - Show Events by PIDs
 
-To look at the debug messages, use the `-v` flag to increase the verbosity of the logs.
+You can also filter for events that match a given list of PIDs.
 
 ```
 # ./build/filemon -I "22467 22498" /tmp/new
