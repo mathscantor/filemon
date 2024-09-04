@@ -26,6 +26,7 @@ int main(int argc, char* argv[]) {
     struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"verbose", no_argument, 0, 'v'},
+        {"include-pattern", required_argument, 0, 'i'},
         {"exclude-pattern", required_argument, 0, 'e'},
         {"output", required_argument, 0, 'o'},
         {"mount", required_argument, 0, 'm'},
@@ -36,6 +37,7 @@ int main(int argc, char* argv[]) {
 
     // Arguments Default Values
     int oopts_verbose = 1;
+    char *oopts_include_pattern = NULL;
     char *oopts_exclude_pattern = NULL;
     char *oopts_output = NULL;
     char *oopts_mount = NULL;
@@ -49,7 +51,7 @@ int main(int argc, char* argv[]) {
     int option_index = 0;
     char* token;
     int i = 0;
-    while ((opt = getopt_long(argc, argv, "hve:o:m:I:E:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hvi:e:o:m:I:E:", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 usage();
@@ -58,7 +60,26 @@ int main(int argc, char* argv[]) {
             case 'v':
                 oopts_verbose = 2; 
                 break;
+            case 'i':
+                if (oopts_exclude_pattern){
+                    log_message(ERROR, 1, "-%c option: Cannot be used with -e option at the same time.\n", opt);
+                    exit(EXIT_FAILURE);
+                }
+                if (oopts_include_pattern){
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt);
+                    exit(EXIT_FAILURE);
+                }
+                oopts_include_pattern = optarg;
+                break;
             case 'e':
+                if (oopts_include_pattern){
+                    log_message(ERROR, 1, "-%c option: Cannot be used with -i option at the same time.\n", opt);
+                    exit(EXIT_FAILURE);
+                }
+                if (oopts_exclude_pattern){
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt);
+                    exit(EXIT_FAILURE);
+                }
                 oopts_exclude_pattern = optarg;
                 break;
             case 'o':
@@ -71,11 +92,11 @@ int main(int argc, char* argv[]) {
                 token = strtok(optarg, " ");
                 i = 0;
                 if (oopts_exclude_pids[0] != 0) {
-                    log_message(ERROR, 1, "-%c option: Cannot be used with -E option at the same time.\n", opt, token);
+                    log_message(ERROR, 1, "-%c option: Cannot be used with -E option at the same time.\n", opt);
                     exit(EXIT_FAILURE);
                 }             
                 if (oopts_include_pids[0] != 0) {
-                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt, token);
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt);
                     exit(EXIT_FAILURE);
                 } 
                 while (token != NULL) {
@@ -146,7 +167,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    m_box = init_monitor_box(posarg_directory, oopts_mount, oopts_include_pids, oopts_exclude_pids, oopts_exclude_pattern);
+    m_box = init_monitor_box(posarg_directory, oopts_mount, oopts_include_pids, oopts_exclude_pids, oopts_include_pattern, oopts_exclude_pattern);
     print_box(m_box);    
     begin_monitor(m_box);
 
@@ -172,14 +193,16 @@ void sigint_handler() {
  * 
  */
 void usage(){
-    printf("Usage: filemon [-h|--help] [-v] [-e PATTERN] [-o OUTPUT] [-m MOUNT]\n" 
-    "[-I INCLUDE_PIDS | -E EXCLUDE_PIDS] DIRECTORY\n");
-    printf("%-30s %s\n", "-h  | --help", "Show help");
-    printf("%-30s %s\n", "-v  | --verbose", "Enables debug logs.");
-    printf("%-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
-    printf("%-30s %s\n", "-o  | --output", "Output to file");
-    printf("%-30s %s\n", "-m  | --mount", "The mount path. (Use this option to override auto search from fstab)");
-    printf("%-30s %s\n", "-I  | --include-pids", "Only show events related to these pids. (Eg. -I \"4728 4279\")");
-    printf("%-30s %s\n", "-E  | --exclude-pids", "Ignore events related to these pids. (Eg. -E \"6728 6817\")");
+    printf("Usage: filemon [-h] [-v] [-o OUTPUT] [-m MOUNT]\n" 
+    "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN] [-I INCLUDE_PIDS | -E EXCLUDE_PIDS] DIRECTORY\n", "");
+    printf("Options:\n");
+    printf("  %-30s %s\n", "-h  | --help", "Show help");
+    printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
+    printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
+    printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
+    printf("  %-30s %s\n", "-o  | --output", "Output to file");
+    printf("  %-30s %s\n", "-m  | --mount", "The mount path. (Use this option to override auto search from fstab)");
+    printf("  %-30s %s\n", "-I  | --include-pids", "Only show events related to these pids. (Eg. -I \"4728 4279\")");
+    printf("  %-30s %s\n", "-E  | --exclude-pids", "Ignore events related to these pids. (Eg. -E \"6728 6817\")");
     return;
 }

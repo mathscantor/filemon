@@ -56,7 +56,7 @@ char* get_path_from_fd(int fd) {
  */
 char* get_comm_from_pid(int pid){
     char* comm_path = (char*)malloc(PATH_MAX);
-    char* comm = (char*)malloc(PATH_MAX);
+    char* comm = (char*)malloc(16);
     snprintf(comm_path, PATH_MAX, "/proc/%d/comm", pid);
     FILE *comm_file = fopen(comm_path, "r");
 
@@ -65,7 +65,7 @@ char* get_comm_from_pid(int pid){
         return "unknown-process";
     }
 
-    if (fgets(comm, sizeof(comm), comm_file)) {
+    if (fgets(comm, 16, comm_file)) {
         comm[strcspn(comm, "\n")] = '\0';
     }
     close(fileno(comm_file));

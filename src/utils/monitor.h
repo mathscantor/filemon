@@ -29,8 +29,13 @@ typedef struct {
 } fanotify_info_t;
 
 typedef struct {
+    // PIDs Filters
     int include_pids[FILTER_MAX];
     int exclude_pids[FILTER_MAX];
+
+    // Regex Filters
+    char include_pattern[FILTER_MAX];
+    regex_t include_regex;
     char exclude_pattern[FILTER_MAX];
     regex_t exclude_regex;
 } filters_t;
@@ -46,7 +51,7 @@ typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* exclude_pattern);
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* include_pattern, char* exclude_pattern);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
@@ -63,7 +68,7 @@ void* handle_read_write_execute_thread(void* arg);
  * @param exclude_pattern Regex pattern to exclude certain path.
  * @return monitor_box_t* 
  */
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* exclude_pattern) {
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* include_pattern, char* exclude_pattern) {
 
     int ret;
 
@@ -209,17 +214,22 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* includ
 
     if (include_pids[0] != 0) {
         memcpy(m_box->filters.include_pids, include_pids, FILTER_MAX);
-    }
-
-    if (exclude_pids[0] != 0) {
+    } else if (exclude_pids[0] != 0) {
         memcpy(m_box->filters.exclude_pids, exclude_pids, FILTER_MAX);
     }
 
-    if (exclude_pattern) {
-        strncpy(m_box->filters.exclude_pattern, exclude_pattern, sizeof(m_box->filters.exclude_pattern));
-        ret = regcomp(&m_box->filters.exclude_regex, exclude_pattern, REG_EXTENDED);
+    if (include_pattern) {
+        strncpy(m_box->filters.include_pattern, include_pattern, sizeof(m_box->filters.include_pattern));
+        ret = regcomp(&m_box->filters.include_regex, m_box->filters.include_pattern, REG_EXTENDED);
         if (ret) {
-            log_message(ERROR, 1, "Could not compile exclude_regex\n");
+            log_message(ERROR, 1, "Could not compile regex for include_pattern: %s\n", m_box->filters.include_pattern);
+            exit(EXIT_FAILURE);
+        }
+    } else if (exclude_pattern) {
+        strncpy(m_box->filters.exclude_pattern, exclude_pattern, sizeof(m_box->filters.exclude_pattern));
+        ret = regcomp(&m_box->filters.exclude_regex, m_box->filters.exclude_pattern, REG_EXTENDED);
+        if (ret) {
+            log_message(ERROR, 1, "Could not compile regex for exclude_pattern: %s\n", m_box->filters.exclude_pattern);
             exit(EXIT_FAILURE);
         }
     } 
@@ -385,7 +395,14 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
                 }
             }
 
-            if (m_box->filters.exclude_pattern[0] != 0) {
+            if (m_box->filters.include_pattern[0] != 0) {
+                if (!regex_search(m_box->filters.include_regex, full_path)) {
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            } else if (m_box->filters.exclude_pattern[0] != 0) {
                 if (regex_search(m_box->filters.exclude_regex, full_path)) {
                     memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
@@ -528,6 +545,8 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
                 if (!is_in_int_array(m_box->filters.include_pids, FILTER_MAX, metadata->pid)) {
                     memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
+                    close(mount_fd);
+                    close(event_fd);
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
                 }
@@ -535,12 +554,23 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
                 if (is_in_int_array(m_box->filters.exclude_pids, FILTER_MAX, metadata->pid)) {
                     memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
+                    close(mount_fd);
+                    close(event_fd);
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
                 }
             }
 
-            if (m_box->filters.exclude_pattern[0] != 0) {
+            if (m_box->filters.include_pattern[0] != 0) {
+                if (!regex_search(m_box->filters.include_regex, full_path)) {
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    close(mount_fd);
+                    close(event_fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            } else if (m_box->filters.exclude_pattern[0] != 0) {
                 if (regex_search(m_box->filters.exclude_regex, full_path)) {
                     memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
@@ -601,7 +631,7 @@ void* handle_read_write_execute_thread(void* arg) {
 }
 
 /**
- * @brief Gracefully removes fan marks and free up memory before exiting.
+ * @brief Gracefully stop the monitoring of files/directories.
  * 
  * @param m_box The monitor box.
  */
@@ -637,6 +667,7 @@ void print_box(monitor_box_t* m_box) {
     log_message(NIL, 0, "---------------------- FILTERS ----------------------\n");
     log_message(NIL, 0, "- Include PIDs: %s\n", strcat_int_array(m_box->filters.include_pids, FILTER_MAX));
     log_message(NIL, 0, "- Exclude PIDs: %s\n", strcat_int_array(m_box->filters.exclude_pids, FILTER_MAX));
+    log_message(NIL, 0, "- Include Pattern: %s\n", m_box->filters.include_pattern);
     log_message(NIL, 0, "- Exclude Pattern: %s\n\n", m_box->filters.exclude_pattern);
     log_message(NIL, 0, "=====================================================================\n");
     return;
