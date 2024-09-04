@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    logger_init(oopts_verbose, oopts_output); 
+    logger_init(oopts_verbose, get_full_path(oopts_output)); 
     if (oopts_output) {
         printf("[+] Starting filemon...\n");
     }
@@ -140,11 +140,11 @@ void sigint_handler() {
  * 
  */
 void usage(){
-    printf("Usage: filemon [-h|--help] [-v] [-e PATTERN] [-l LOGFILE] [-m MOUNT] [-L INCLUDE_PIDS] DIRECTORY\n");
+    printf("Usage: filemon [-h|--help] [-v] [-e PATTERN] [-o OUTPUT] [-m MOUNT] [-L INCLUDE_PIDS] DIRECTORY\n");
     printf("%-30s %s\n", "-h  | --help", "Show help");
     printf("%-30s %s\n", "-v  | --verbose", "Enables debug logs.");
     printf("%-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
-    printf("%-30s %s\n", "-o  | --output", "The path of the log file.");
+    printf("%-30s %s\n", "-o  | --output", "Output to file");
     printf("%-30s %s\n", "-m  | --mount", "The mount path. (Use this option to override auto search from fstab)");
     printf("%-30s %s\n", "-L  | --include-pids", "Only show events related to these pids. (Eg. -L \"4728 4279\")");
     return;
