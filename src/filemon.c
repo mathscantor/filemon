@@ -44,6 +44,8 @@ int main(int argc, char* argv[]) {
 
     int opt;
     int option_index = 0;
+    char* token;
+    int i = 0;
     while ((opt = getopt_long(argc, argv, "hve:o:m:L:", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
@@ -63,8 +65,12 @@ int main(int argc, char* argv[]) {
                 oopts_mount = optarg;
                 break;
             case 'L':
-                char* token = strtok(optarg, " ");
-                int i = 0;
+                token = strtok(optarg, " ");
+                i = 0;
+                if (oopts_include_pids[0] != 0) {
+                    log_message(ERROR, 1, "%c option: Cannot be used more than once.\n", opt, token);
+                    exit(EXIT_FAILURE);
+                } 
                 while (token != NULL) {
                     if (!is_valid_integer(token)) {
                         log_message(ERROR, 1, "%c option: '%s' is not an integer.\n", opt, token);
