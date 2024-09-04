@@ -283,6 +283,7 @@ int is_valid_integer(const char *str) {
  * @brief Returns a concatenated string from an array of integers.
  * 
  * @param array The integer array.
+ * @param size  The maximum length of the integer array.
  * @return char* 
  */
 char* strcat_int_array(int *array, size_t size){
@@ -307,7 +308,7 @@ char* strcat_int_array(int *array, size_t size){
 /**
  * @brief Check for existence of integer in an array of integers.
  * @param haystack The integer array.
- * @param size The size of the integer array.
+ * @param size The maximum length of the integer array.
  * @param needle The integer to look for within the integer array.
  * @return int 
  */

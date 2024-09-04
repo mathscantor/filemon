@@ -30,6 +30,7 @@ typedef struct {
 
 typedef struct {
     int include_pids[FILTER_MAX];
+    int exclude_pids[FILTER_MAX];
     char exclude_pattern[FILTER_MAX];
     regex_t exclude_regex;
 } filters_t;
@@ -45,7 +46,7 @@ typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, char* exclude_pattern);
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* exclude_pattern);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
@@ -62,7 +63,7 @@ void* handle_read_write_execute_thread(void* arg);
  * @param exclude_pattern Regex pattern to exclude certain path.
  * @return monitor_box_t* 
  */
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, char* exclude_pattern) {
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* exclude_pattern) {
 
     int ret;
 
@@ -85,6 +86,7 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* includ
 
     /** Initialize Filters **/
     memset(m_box->filters.include_pids, 0, sizeof(m_box->filters.include_pids));
+    memset(m_box->filters.exclude_pids, 0, sizeof(m_box->filters.exclude_pids));
     memset(&m_box->filters.exclude_pattern, 0, sizeof(m_box->filters.exclude_pattern));
     memset(&m_box->filters.exclude_regex, 0, sizeof(m_box->filters.exclude_regex));
 
@@ -207,6 +209,10 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* includ
 
     if (include_pids[0] != 0) {
         memcpy(m_box->filters.include_pids, include_pids, FILTER_MAX);
+    }
+
+    if (exclude_pids[0] != 0) {
+        memcpy(m_box->filters.exclude_pids, exclude_pids, FILTER_MAX);
     }
 
     if (exclude_pattern) {
@@ -356,7 +362,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             #endif
 
             if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
-                memset(flags, 0, FLAGS_MAX);
+                memset(flags, 0, sizeof(flags));
                 close(metadata->fd);
                 metadata = FAN_EVENT_NEXT(metadata, buflen);
                 continue;
@@ -365,7 +371,14 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             /* Apply Filters */
             if (m_box->filters.include_pids[0] != 0) {
                 if (!is_in_int_array(m_box->filters.include_pids, FILTER_MAX, metadata->pid)) {
-                    memset(flags, 0, FLAGS_MAX);
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            } else if (m_box->filters.exclude_pids[0] != 0) {
+                if (is_in_int_array(m_box->filters.exclude_pids, FILTER_MAX, metadata->pid)) {
+                    memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
@@ -374,7 +387,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
 
             if (m_box->filters.exclude_pattern[0] != 0) {
                 if (regex_search(m_box->filters.exclude_regex, full_path)) {
-                    memset(flags, 0, FLAGS_MAX);
+                    memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
@@ -383,7 +396,7 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             
             flags[strlen(flags) - 2] = '\0';
             log_message(INFO, 1, "%s (%d): %s == [%s]\n", comm, metadata->pid, full_path, flags);
-            memset(flags, 0, FLAGS_MAX);
+            memset(flags, 0, sizeof(flags));
 
             // Advance to the next event
             close(metadata->fd);
@@ -502,7 +515,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             #endif
 
             if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
-                memset(flags, 0, FLAGS_MAX);
+                memset(flags, 0, sizeof(flags));
                 close(metadata->fd);
                 close(mount_fd);
                 close(event_fd);
@@ -513,7 +526,14 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             /* Apply Filters */
             if (m_box->filters.include_pids[0] != 0) {
                 if (!is_in_int_array(m_box->filters.include_pids, FILTER_MAX, metadata->pid)) {
-                    memset(flags, 0, FLAGS_MAX);
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            } else if (m_box->filters.exclude_pids[0] != 0) {
+                if (is_in_int_array(m_box->filters.exclude_pids, FILTER_MAX, metadata->pid)) {
+                    memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
@@ -522,7 +542,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
 
             if (m_box->filters.exclude_pattern[0] != 0) {
                 if (regex_search(m_box->filters.exclude_regex, full_path)) {
-                    memset(flags, 0, FLAGS_MAX);
+                    memset(flags, 0, sizeof(flags));
                     close(metadata->fd);
                     close(mount_fd);
                     close(event_fd);
@@ -537,7 +557,7 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             } else {
                 log_message(INFO, 1, "%s (%d): %s == [%s]\n", comm, metadata->pid, path, flags);
             }
-            memset(flags, 0, FLAGS_MAX);
+            memset(flags, 0, sizeof(flags));
             
             close(metadata->fd);
             close(mount_fd);
@@ -615,7 +635,8 @@ void print_box(monitor_box_t* m_box) {
     log_message(NIL, 0, "- Fanotify Create, Delete, Move FD: %d\n", m_box->fanotify_info.fd_create_delete_move);
     log_message(NIL, 0, "\t└─ Flags: %s\n\n", m_box->fanotify_info.flags_create_delete_move);
     log_message(NIL, 0, "---------------------- FILTERS ----------------------\n");
-    log_message(NIL, 0, "- Include PIDS: %s\n", strcat_int_array(m_box->filters.include_pids, FILTER_MAX));
+    log_message(NIL, 0, "- Include PIDs: %s\n", strcat_int_array(m_box->filters.include_pids, FILTER_MAX));
+    log_message(NIL, 0, "- Exclude PIDs: %s\n", strcat_int_array(m_box->filters.exclude_pids, FILTER_MAX));
     log_message(NIL, 0, "- Exclude Pattern: %s\n\n", m_box->filters.exclude_pattern);
     log_message(NIL, 0, "=====================================================================\n");
     return;
