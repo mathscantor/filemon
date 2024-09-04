@@ -83,9 +83,17 @@ int main(int argc, char* argv[]) {
                 oopts_exclude_pattern = optarg;
                 break;
             case 'o':
+                if (oopts_output) {
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt);
+                    exit(EXIT_FAILURE);
+                }
                 oopts_output = optarg;
                 break;
             case 'm':
+                if (oopts_mount) {
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt);
+                    exit(EXIT_FAILURE);
+                }
                 oopts_mount = optarg;
                 break;
             case 'I':
