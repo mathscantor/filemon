@@ -51,7 +51,7 @@ void logger_init(int verbosity_level, char* logfile) {
         memset(g_logger.logfile, 0, sizeof(g_logger.logfile));
         g_logger.f_logfile = NULL;
     } else {
-        strncpy(g_logger.logfile, logfile, sizeof(g_logger.logfile));
+        strncpy(g_logger.logfile, logfile, strlen(logfile));
         g_logger.f_logfile = fopen(g_logger.logfile, "w");
     }
 

@@ -201,7 +201,7 @@ int main(int argc, char* argv[]) {
     }
 
     if (oopts_output)
-        logger_init(oopts_verbose, get_full_path(oopts_output)); 
+        logger_init(oopts_verbose, oopts_output); 
     else
         logger_init(oopts_verbose, NULL); 
 

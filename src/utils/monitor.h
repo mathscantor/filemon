@@ -311,7 +311,7 @@ void begin_monitor(monitor_box_t* m_box) {
     }
     if (g_logger.logfile[0] != 0) {
         printf("[+] Successfully started filemon.\n");
-        printf("[+] All output is redirected to \"%s\"\n", g_logger.logfile);
+        printf("[+] All output is redirected to \"%s\"\n", get_full_path(g_logger.logfile));
     }
     log_message(INFO, 1, "Successfully started filemon.\n");
 
