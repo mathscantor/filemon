@@ -378,6 +378,14 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
                 continue;
             }
 
+            // Ignore self
+            if (metadata->pid == getpid()) {
+                memset(flags, 0, sizeof(flags));
+                close(metadata->fd);
+                metadata = FAN_EVENT_NEXT(metadata, buflen);
+                continue;
+            }
+
             /* Apply Filters */
             if (m_box->filters.include_pids[0] != 0) {
                 if (!is_in_int_array(m_box->filters.include_pids, FILTER_MAX, metadata->pid)) {
@@ -532,6 +540,16 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
             #endif
 
             if (strncmp(full_path, m_box->parent_path, strlen(m_box->parent_path)) != 0) {
+                memset(flags, 0, sizeof(flags));
+                close(metadata->fd);
+                close(mount_fd);
+                close(event_fd);
+                metadata = FAN_EVENT_NEXT(metadata, buflen);
+                continue;
+            }
+
+            // Ignore self
+            if (metadata->pid == getpid()) {
                 memset(flags, 0, sizeof(flags));
                 close(metadata->fd);
                 close(mount_fd);
