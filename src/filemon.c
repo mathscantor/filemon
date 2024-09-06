@@ -253,7 +253,9 @@ void sigint_handler() {
  */
 void usage(){
     printf("Usage: filemon [-h] [-v] [-o OUTPUT] [-m MOUNT]\n" 
-    "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN] [-I INCLUDE_PIDS | -E EXCLUDE_PIDS] DIRECTORY\n", "");
+    "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]\n"
+    "%15s[-I INCLUDE_PIDS | -E EXCLUDE_PIDS]\n"
+    "%15s[-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] DIRECTORY\n", "", "", "");
     printf("Options:\n");
     printf("  %-30s %s\n", "-h  | --help", "Show help");
     printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
