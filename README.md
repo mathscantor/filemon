@@ -23,10 +23,10 @@ A successfully built Filemon will be generated in **build/filemon**.
 As fanotify requires root permissions, remember to run it with sudo or change to the root user before running!
 
 ```
-# ./build/filemon -h
-
 Usage: filemon [-h] [-v] [-o OUTPUT] [-m MOUNT]
-               [-i INCLUDE_PATERN | -e EXCLUDE_PATTERN] [-I INCLUDE_PIDS | -E EXCLUDE_PIDS] DIRECTORY
+               [-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]
+               [-I INCLUDE_PIDS | -E EXCLUDE_PIDS]
+               [-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] DIRECTORY
 Options:
   -h  | --help                   Show help
   -v  | --verbose                Enables debug logs.
@@ -36,6 +36,8 @@ Options:
   -m  | --mount                  The mount path. (Use this option to override auto search from fstab)
   -I  | --include-pids           Only show events related to these pids. (Eg. -I "4728 4279")
   -E  | --exclude-pids           Ignore events related to these pids. (Eg. -E "6728 6817")
+  -N  | --include-process        Only show events related to these process names. (Eg. -N "python3 systemd")
+  -X  | --exclude-process        Ignore events related to these process names. (Eg. -X "python3 systemd")
 ```
 
 ### Example 1 - Simple Usage
@@ -62,8 +64,12 @@ Simply state the directory path to monitor. This will recursively monitor all su
 ---------------------- FILTERS ----------------------
 - Include PIDs: 
 - Exclude PIDs: 
+
+- Include Processes: 
+- Exclude Processes: 
+
 - Include Pattern: 
-- Exclude Pattern: 
+- Exclude Pattern:
 
 =====================================================================
 16-08-2024 23:34:36.373 UTC+08:00    [INF] Successfully started filemon.
