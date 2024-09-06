@@ -33,6 +33,10 @@ typedef struct {
     int include_pids[FILTER_MAX];
     int exclude_pids[FILTER_MAX];
 
+    // Process Name Filters
+    char include_process[FILTER_MAX][PROC_NAME_LEN];
+    char exclude_process[FILTER_MAX][PROC_NAME_LEN];
+
     // Regex Filters
     char include_pattern[FILTER_MAX];
     regex_t include_regex;
@@ -51,7 +55,10 @@ typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* include_pattern, char* exclude_pattern);
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, 
+                                int* include_pids, int* exclude_pids, 
+                                char** include_process, char** exclude_process,
+                                char* include_pattern, char* exclude_pattern);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
@@ -68,7 +75,10 @@ void* handle_read_write_execute_thread(void* arg);
  * @param exclude_pattern Regex pattern to exclude certain path.
  * @return monitor_box_t* 
  */
-monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* include_pids, int* exclude_pids, char* include_pattern, char* exclude_pattern) {
+monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, 
+                                int* include_pids, int* exclude_pids, 
+                                char** include_process, char** exclude_process,
+                                char* include_pattern, char* exclude_pattern) {
 
     int ret;
 
@@ -92,6 +102,13 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* includ
     /** Initialize Filters **/
     memset(m_box->filters.include_pids, 0, sizeof(m_box->filters.include_pids));
     memset(m_box->filters.exclude_pids, 0, sizeof(m_box->filters.exclude_pids));
+
+    for (int i = 0; i < FILTER_MAX; i++) {
+        memset(m_box->filters.include_process[i], 0, PROC_NAME_LEN);
+        memset(m_box->filters.exclude_process[i], 0, PROC_NAME_LEN);
+
+    }
+
     memset(&m_box->filters.exclude_pattern, 0, sizeof(m_box->filters.exclude_pattern));
     memset(&m_box->filters.exclude_regex, 0, sizeof(m_box->filters.exclude_regex));
 
@@ -217,6 +234,23 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, int* includ
     } else if (exclude_pids[0] != 0) {
         memcpy(m_box->filters.exclude_pids, exclude_pids, FILTER_MAX);
     }
+
+    if (include_process[0]) {
+        for (int i = 0; i < FILTER_MAX; i++) {
+            if (!include_process[i]) {
+                break;
+            } 
+            strncpy(m_box->filters.include_process[i], include_process[i], strlen(include_process[i]));
+        }
+    } else if (exclude_process[0]) {
+        for (int i = 0; i < FILTER_MAX; i++) {
+            if (!exclude_process[i]) {
+                break;
+            } 
+            strncpy(m_box->filters.exclude_process[i], exclude_process[i], strlen(exclude_process[i]));
+        }
+    }
+
 
     if (include_pattern) {
         strncpy(m_box->filters.include_pattern, include_pattern, sizeof(m_box->filters.include_pattern));
@@ -403,6 +437,22 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
                 }
             }
 
+            if (m_box->filters.include_process[0][0] != 0) {
+                if (!is_in_process_names(m_box->filters.include_process, FILTER_MAX, comm)) {
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            } else if (m_box->filters.exclude_process[0][0] != 0) {
+                if (is_in_process_names(m_box->filters.exclude_process, FILTER_MAX, comm)) {
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            }
+
             if (m_box->filters.include_pattern[0] != 0) {
                 if (!regex_search(m_box->filters.include_regex, full_path)) {
                     memset(flags, 0, sizeof(flags));
@@ -579,6 +629,26 @@ void handle_events_create_delete_move(monitor_box_t* m_box) {
                 }
             }
 
+            if (m_box->filters.include_process[0][0] != 0) {
+                if (!is_in_process_names(m_box->filters.include_process, FILTER_MAX, comm)) {
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    close(mount_fd);
+                    close(event_fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            } else if (m_box->filters.exclude_process[0][0] != 0) {
+                if (is_in_process_names(m_box->filters.exclude_process, FILTER_MAX, comm)) {
+                    memset(flags, 0, sizeof(flags));
+                    close(metadata->fd);
+                    close(mount_fd);
+                    close(event_fd);
+                    metadata = FAN_EVENT_NEXT(metadata, buflen);
+                    continue;
+                }
+            }
+
             if (m_box->filters.include_pattern[0] != 0) {
                 if (!regex_search(m_box->filters.include_regex, full_path)) {
                     memset(flags, 0, sizeof(flags));
@@ -684,7 +754,9 @@ void print_box(monitor_box_t* m_box) {
     log_message(NIL, 0, "\t└─ Flags: %s\n\n", m_box->fanotify_info.flags_create_delete_move);
     log_message(NIL, 0, "---------------------- FILTERS ----------------------\n");
     log_message(NIL, 0, "- Include PIDs: %s\n", strcat_int_array(m_box->filters.include_pids, FILTER_MAX));
-    log_message(NIL, 0, "- Exclude PIDs: %s\n", strcat_int_array(m_box->filters.exclude_pids, FILTER_MAX));
+    log_message(NIL, 0, "- Exclude PIDs: %s\n\n", strcat_int_array(m_box->filters.exclude_pids, FILTER_MAX));
+    log_message(NIL, 0, "- Include Processes: %s\n", strcat_process_names(m_box->filters.include_process, FILTER_MAX));
+    log_message(NIL, 0, "- Exclude Processes: %s\n\n", strcat_process_names(m_box->filters.exclude_process, FILTER_MAX));
     log_message(NIL, 0, "- Include Pattern: %s\n", m_box->filters.include_pattern);
     log_message(NIL, 0, "- Exclude Pattern: %s\n\n", m_box->filters.exclude_pattern);
     log_message(NIL, 0, "=====================================================================\n");

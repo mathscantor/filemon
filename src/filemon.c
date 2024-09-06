@@ -32,26 +32,40 @@ int main(int argc, char* argv[]) {
         {"mount", required_argument, 0, 'm'},
         {"include-pids", required_argument, 0, 'I'},
         {"enclude-pids", required_argument, 0, 'E'},
+        {"include-process", required_argument, 0, 'N'},
+        {"exclude-process", required_argument, 0, 'X'},
         {0, 0, 0, 0}
     };
 
     // Arguments Default Values
     int oopts_verbose = 1;
-    char *oopts_include_pattern = NULL;
-    char *oopts_exclude_pattern = NULL;
-    char *oopts_output = NULL;
-    char *oopts_mount = NULL;
+    char* oopts_include_pattern = NULL;
+    char* oopts_exclude_pattern = NULL;
+    char* oopts_output = NULL;
+    char* oopts_mount = NULL;
+    
     int oopts_include_pids[FILTER_MAX];
     memset(oopts_include_pids, 0, sizeof(oopts_include_pids));
+    
     int oopts_exclude_pids[FILTER_MAX];
     memset(oopts_exclude_pids, 0, sizeof(oopts_exclude_pids));
+    
+    char** oopts_include_process = malloc(FILTER_MAX * sizeof(char *));
+    for (int i = 0; i < FILTER_MAX; i++) {
+        oopts_include_process[i] = NULL;
+    }
+    char** oopts_exclude_process = malloc(FILTER_MAX * sizeof(char *));
+    for (int i = 0; i < FILTER_MAX; i++) {
+        oopts_exclude_process[i] = NULL;
+    }
+    
     char *posarg_directory = NULL;
 
     int opt;
     int option_index = 0;
     char* token;
     int i = 0;
-    while ((opt = getopt_long(argc, argv, "hvi:e:o:m:I:E:", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hvi:e:o:m:I:E:N:X:", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 usage();
@@ -138,6 +152,40 @@ int main(int argc, char* argv[]) {
                     token = strtok(NULL, " ");
                 }
                 break;
+            case 'N':
+                token = strtok(optarg, " ");
+                i = 0;
+                if (oopts_exclude_process[0]) {
+                    log_message(ERROR, 1, "-%c option: Cannot be used with -X option at the same time.\n", opt, token);
+                    exit(EXIT_FAILURE);
+                } 
+                if (oopts_include_process[0]) {
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt, token);
+                    exit(EXIT_FAILURE);
+                } 
+                while (token != NULL) {
+                    oopts_include_process[i] = token;
+                    i++;
+                    token = strtok(NULL, " ");
+                }
+                break;
+            case 'X':
+                token = strtok(optarg, " ");
+                i = 0;
+                if (oopts_include_process[0]) {
+                    log_message(ERROR, 1, "-%c option: Cannot be used with -N option at the same time.\n", opt, token);
+                    exit(EXIT_FAILURE);
+                } 
+                if (oopts_exclude_process[0]) {
+                    log_message(ERROR, 1, "-%c option: Cannot be used more than once.\n", opt, token);
+                    exit(EXIT_FAILURE);
+                } 
+                while (token != NULL) {
+                    oopts_exclude_process[i] = token;
+                    i++;
+                    token = strtok(NULL, " ");
+                }
+                break;
             default:
                 usage();
                 exit(EXIT_FAILURE);
@@ -175,7 +223,10 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    m_box = init_monitor_box(posarg_directory, oopts_mount, oopts_include_pids, oopts_exclude_pids, oopts_include_pattern, oopts_exclude_pattern);
+    m_box = init_monitor_box(posarg_directory, oopts_mount, 
+                            oopts_include_pids, oopts_exclude_pids, 
+                            oopts_include_process, oopts_exclude_process,
+                            oopts_include_pattern, oopts_exclude_pattern);
     print_box(m_box);    
     begin_monitor(m_box);
 
@@ -212,5 +263,7 @@ void usage(){
     printf("  %-30s %s\n", "-m  | --mount", "The mount path. (Use this option to override auto search from fstab)");
     printf("  %-30s %s\n", "-I  | --include-pids", "Only show events related to these pids. (Eg. -I \"4728 4279\")");
     printf("  %-30s %s\n", "-E  | --exclude-pids", "Ignore events related to these pids. (Eg. -E \"6728 6817\")");
+    printf("  %-30s %s\n", "-N  | --include-process", "Only show events related to these process names. (Eg. -N \"python3 systemd\")");
+    printf("  %-30s %s\n", "-X  | --exclude-process", "Ignore events related to these process names. (Eg. -X \"python3 systemd\")");
     return;
 } 

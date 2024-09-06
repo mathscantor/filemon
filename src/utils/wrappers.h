@@ -12,8 +12,9 @@
 #ifndef WRAPPER_H
 #define WRAPPER_H
 
-#define FILTER_MAX 4096
+#define FILTER_MAX 1024
 #define FLAGS_MAX 1024
+#define PROC_NAME_LEN 16
 
 char* get_path_from_fd(int fd);
 char* get_comm_from_pid(int pid);
@@ -26,6 +27,8 @@ char* get_full_path(const char *path);
 int is_valid_integer(const char *str);
 char* strcat_int_array(int *array, size_t size);
 int is_in_int_array(int *haystack, size_t size, int needle);
+char* strcat_process_names(char array[][PROC_NAME_LEN], size_t size);
+int is_in_process_names(char haystack[][PROC_NAME_LEN], size_t size, char* needle);
 
 /**
  * @brief Get the path from fd object
@@ -314,6 +317,34 @@ char* strcat_int_array(int *array, size_t size){
 int is_in_int_array(int *haystack, size_t size, int needle) {
     for (size_t i = 0; i < size; i++) {
         if (needle == haystack[i]) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+char* strcat_process_names(char array[][PROC_NAME_LEN], size_t size){
+    
+    char* string = malloc(FILTER_MAX + 1);
+    memset(string, 0, FILTER_MAX + 1);
+    int length = 0;
+
+    for(size_t i = 0; i < size; i++) { 
+        if (array[i][0] == '\0')
+            break;
+
+        length = snprintf(NULL, 0, "%s, ", array[i]);
+        char* tmp = malloc(length + 1);
+        snprintf(tmp, length + 1, "%s, ", array[i]);
+        strncat(string, tmp, strlen(tmp) + 1);
+    }
+    string[strlen(string) - 2] = '\0';
+    return string;
+}
+
+int is_in_process_names(char haystack[][PROC_NAME_LEN], size_t size, char* needle) {
+    for (size_t i = 0; i < size; i++) {
+        if (strncmp(haystack[i], needle, strlen(needle)) == 0) {
             return 1;
         }
     }
