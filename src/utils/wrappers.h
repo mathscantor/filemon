@@ -131,8 +131,7 @@ int has_config_fanotify() {
 
     // Get the kernel version
     if (uname(&uname_data) != 0) {
-        perror("uname");
-        log_message(ERROR, 1, "Unable to get kernel version.");
+        log_message(ERROR, 1, "Unable to get kernel version via uname.\n");
         return 0;
     }
 
@@ -142,13 +141,13 @@ int has_config_fanotify() {
     // Open the file for reading
     file = fopen(filepath, "r");
     if (file == NULL) {
-        log_message(ERROR, 1, "Unable to open: \"/boot/config-%s\"", uname_data.release);
+        log_message(ERROR, 1, "Unable to open: \"/boot/config-%s\"\n", uname_data.release);
         return 0;
     }
 
     // Search for the string in the file
     while (fgets(line, sizeof(line), file)) {
-        if (strstr(line, search_str)) {
+        if (strncmp(line, search_str, strlen(search_str)) == 0) {
             fclose(file);
             return 1;
         }
@@ -171,7 +170,7 @@ int has_config_fanotify_access_perms() {
 
     // Get the kernel version
     if (uname(&uname_data) != 0) {
-        perror("uname");
+        log_message(ERROR, 1, "Unable to get kernel version via uname.\n");
         return 0;
     }
 
@@ -181,13 +180,13 @@ int has_config_fanotify_access_perms() {
     // Open the file for reading
     file = fopen(filepath, "r");
     if (file == NULL) {
-        perror("fopen");
+        log_message(ERROR, 1, "Unable to fopen: %s\n", filepath);
         return 0;
     }
 
     // Search for the string in the file
     while (fgets(line, sizeof(line), file)) {
-        if (strstr(line, search_str)) {
+        if (strncmp(line, search_str, strlen(search_str)) == 0) {
             fclose(file);
             return 1;
         }
@@ -205,12 +204,12 @@ int has_config_fanotify_access_perms() {
 char* get_full_path(const char *path) {
     char *resolved_path = malloc(PATH_MAX);
     if (resolved_path == NULL) {
-        perror("malloc");
+        log_message(ERROR, 1, "Unable to malloc for resolved_path\n");
         return NULL;
     }
 
     if (realpath(path, resolved_path) == NULL) {
-        perror("realpath");
+        log_message(ERROR, 1, "Unable to resolve fullpath of: %s\n", path);
         free(resolved_path);
         return NULL;
     }

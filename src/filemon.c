@@ -213,4 +213,4 @@ void usage(){
     printf("  %-30s %s\n", "-I  | --include-pids", "Only show events related to these pids. (Eg. -I \"4728 4279\")");
     printf("  %-30s %s\n", "-E  | --exclude-pids", "Ignore events related to these pids. (Eg. -E \"6728 6817\")");
     return;
-}
+} 
