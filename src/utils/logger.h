@@ -77,6 +77,10 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
     gettimeofday(&tv, NULL);
     struct tm* local_time = localtime(&tv.tv_sec);
 
+    int utc_offset = local_time->tm_gmtoff; // tm_gmtoff gives offset in seconds
+    int hours_offset = utc_offset / 3600;
+    int minutes_offset = abs((utc_offset % 3600) / 60);
+
     // If verbosity is default (1), then ignore DEBUG messages
     if (g_logger.verbosity_level == 1 && sev == DEBUG) {
         return;
@@ -86,16 +90,19 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
     if (g_logger.f_logfile != NULL){
         if (show_time) {
             fprintf(g_logger.f_logfile, 
-                "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC%s:00%-4s",
+                "%02d-%02d-%04d %02d:%02d:%02d.%03d",
                 local_time->tm_mday,
                 local_time->tm_mon + 1,
                 local_time->tm_year + 1900,
                 local_time->tm_hour,
                 local_time->tm_min,
                 local_time->tm_sec,
-                (int)tv.tv_usec / 1000,
-                local_time->tm_zone,
-                "");
+                (int)tv.tv_usec / 1000);
+            if (hours_offset >= 0)
+                fprintf(g_logger.f_logfile, " UTC+%02d:%02d%4s", hours_offset, minutes_offset, "");
+            else {
+                fprintf(g_logger.f_logfile, " UTC-%02d:%02d%4s", abs(hours_offset), minutes_offset, "");
+            }
         }
         va_start(args, format);
         fprintf(g_logger.f_logfile, "%s", severity_colors[sev]);
@@ -104,16 +111,19 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
         va_end(args);
     } else {
         if (show_time) {
-            printf("%02d-%02d-%04d %02d:%02d:%02d.%03d UTC%s:00%4s",
+            printf("%02d-%02d-%04d %02d:%02d:%02d.%03d",
                 local_time->tm_mday,
                 local_time->tm_mon + 1,
                 local_time->tm_year + 1900,
                 local_time->tm_hour,
                 local_time->tm_min,
                 local_time->tm_sec,
-                (int)tv.tv_usec / 1000,
-                local_time->tm_zone,
-                "");
+                (int)tv.tv_usec / 1000);
+            if (hours_offset >= 0)
+                printf(" UTC+%02d:%02d%4s", hours_offset, minutes_offset, "");
+            else {
+                printf(" UTC-%02d:%02d%4s", abs(hours_offset), minutes_offset, "");
+            }
         }
         va_start(args, format);
         printf("%s", severity_colors[sev]);
