@@ -27,10 +27,10 @@ A successfully built Filemon will be generated in **build/filemon**.
 As fanotify requires root permissions, remember to run it with sudo or change to the root user before running!
 
 ```
-Usage: filemon [-h] [-v] [-o OUTPUT] [-m MOUNT]
+Usage: filemon DIRECTORY [-h] [-v] [-o OUTPUT] [-m MOUNT]
                [-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]
                [-I INCLUDE_PIDS | -E EXCLUDE_PIDS]
-               [-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] DIRECTORY
+               [-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P]
 Options:
   -h  | --help                   Show help
   -v  | --verbose                Enables debug logs.
@@ -42,6 +42,7 @@ Options:
   -E  | --exclude-pids           Ignore events related to these pids. (Eg. -E "6728 6817")
   -N  | --include-process        Only show events related to these process names. (Eg. -N "python3 systemd")
   -X  | --exclude-process        Ignore events related to these process names. (Eg. -X "python3 systemd")
+  -P  | --enable-perm-flags      Add permission flags to fanotify marking. (WARNING: Will slow down system!)
 ```
 
 ### Example 1 - Simple Usage
