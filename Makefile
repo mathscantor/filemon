@@ -10,7 +10,7 @@ SRCS = $(wildcard $(SRC_DIR)/*.c)
 OBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
 
 # Default target
-all: $(TARGET)
+all: shared
 
 # Build directory
 $(BUILD_DIR):
@@ -20,13 +20,17 @@ $(BUILD_DIR):
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-# Link the binary
-$(TARGET): $(OBJS)
+# Link the shared binary
+shared: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET)
+
+# Link the static binary
+static: $(OBJS)
+	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) -static
 
 # Clean up
 clean:
 	rm -rf $(BUILD_DIR)
 
 # Phony targets
-.PHONY: all clean
+.PHONY: all clean shared static
