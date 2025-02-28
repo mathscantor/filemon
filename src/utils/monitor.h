@@ -27,6 +27,7 @@ typedef struct {
     char flags_fanotify_mark[FLAGS_MAX];
     int config_fanotify_enabled;
     int config_fanotify_access_permissions_enabled;
+    int enable_perm_flags;
 } fanotify_info_t;
 
 typedef struct {
@@ -59,7 +60,7 @@ typedef struct {
 monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, 
                                 int* include_pids, int* exclude_pids, 
                                 char** include_process, char** exclude_process,
-                                char* include_pattern, char* exclude_pattern);
+                                char* include_pattern, char* exclude_pattern, int enable_perm_flags);
 void begin_monitor(monitor_box_t* m_box);
 void stop_monitor(monitor_box_t* m_box);
 void print_box(monitor_box_t* m_box);
@@ -79,7 +80,7 @@ void* handle_read_write_execute_thread(void* arg);
 monitor_box_t* init_monitor_box(char* parent_path, char* mount_path, 
                                 int* include_pids, int* exclude_pids, 
                                 char** include_process, char** exclude_process,
-                                char* include_pattern, char* exclude_pattern) {
+                                char* include_pattern, char* exclude_pattern, int enable_perm_flags) {
 
     int ret;
 
@@ -102,6 +103,7 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path,
     memset(m_box->fanotify_info.flags_fanotify_mark, 0, sizeof(m_box->fanotify_info.flags_fanotify_mark));
     m_box->fanotify_info.config_fanotify_enabled = has_config_fanotify();
     m_box->fanotify_info.config_fanotify_access_permissions_enabled = has_config_fanotify_access_perms();
+    m_box->fanotify_info.enable_perm_flags = enable_perm_flags;
 
     /** Initialize Filters **/
     memset(m_box->filters.include_pids, 0, sizeof(m_box->filters.include_pids));
@@ -174,24 +176,24 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path,
         strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_CLOSE_NOWRITE, ", strlen("FAN_CLOSE_NOWRITE, ") + 1);
         #endif
 
-        // if (m_box->fanotify_info.config_fanotify_access_permissions_enabled) {
-        //     #ifdef FAN_OPEN_PERM
-        //     m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_PERM;
-        //     strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
-        //     #endif
+        if (m_box->fanotify_info.config_fanotify_access_permissions_enabled && m_box->fanotify_info.enable_perm_flags) {
+            #ifdef FAN_OPEN_PERM
+            m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_PERM;
+            strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
+            #endif
         
-        //     #ifdef FAN_ACCESS_PERM
-        //     m_box->fanotify_info.event_mask_read_write_execute |= FAN_ACCESS_PERM;
-        //     strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
-        //     #endif
+            #ifdef FAN_ACCESS_PERM
+            m_box->fanotify_info.event_mask_read_write_execute |= FAN_ACCESS_PERM;
+            strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
+            #endif
 
-        //     #ifdef FAN_OPEN_EXEC_PERM
-        //     m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_EXEC_PERM;
-        //     strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
-        //     #endif
-        // } else {
-        //     log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
-        // }
+            #ifdef FAN_OPEN_EXEC_PERM
+            m_box->fanotify_info.event_mask_read_write_execute |= FAN_OPEN_EXEC_PERM;
+            strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
+            #endif
+        } else {
+            log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
+        }
 
         m_box->fanotify_info.mask_read_write_execute[strlen(m_box->fanotify_info.mask_read_write_execute) - 2] = '\0';
 
@@ -363,34 +365,34 @@ void handle_events_read_write_execute(monitor_box_t* m_box) {
             char *comm = get_comm_from_pid(metadata->pid);
             char *full_path = get_path_from_fd(metadata->fd);
             char mask[FLAGS_MAX] = {0};
-            // if (m_box->fanotify_info.config_fanotify_access_permissions_enabled) {
-            //     #ifdef FAN_OPEN_PERM
-            //     if (metadata->mask & FAN_OPEN_PERM) {
-            //         response.fd = metadata->fd;
-            //         response.response = FAN_ALLOW;
-            //         write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
-            //         strncat(mask, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
-            //     }
-            //     #endif
+            if (m_box->fanotify_info.config_fanotify_access_permissions_enabled && m_box->fanotify_info.enable_perm_flags)  {
+                #ifdef FAN_OPEN_PERM
+                if (metadata->mask & FAN_OPEN_PERM) {
+                    response.fd = metadata->fd;
+                    response.response = FAN_ALLOW;
+                    write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
+                    strncat(mask, "FAN_OPEN_PERM, ", strlen("FAN_OPEN_PERM, ") + 1);
+                }
+                #endif
                 
-            //     #ifdef FAN_ACCESS_PERM
-            //     if (metadata->mask & FAN_ACCESS_PERM) {
-            //         response.fd = metadata->fd;
-            //         response.response = FAN_ALLOW;
-            //         write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
-            //         strncat(mask, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
-            //     }
-            //     #endif
+                #ifdef FAN_ACCESS_PERM
+                if (metadata->mask & FAN_ACCESS_PERM) {
+                    response.fd = metadata->fd;
+                    response.response = FAN_ALLOW;
+                    write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
+                    strncat(mask, "FAN_ACCESS_PERM, ", strlen("FAN_ACCESS_PERM, ") + 1);
+                }
+                #endif
 
-            //     #ifdef FAN_OPEN_EXEC_PERM
-            //     if (metadata->mask & FAN_OPEN_EXEC_PERM) {
-            //         response.fd = metadata->fd;
-            //         response.response = FAN_ALLOW;
-            //         write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
-            //         strncat(mask, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
-            //     }
-            //     #endif
-            // }
+                #ifdef FAN_OPEN_EXEC_PERM
+                if (metadata->mask & FAN_OPEN_EXEC_PERM) {
+                    response.fd = metadata->fd;
+                    response.response = FAN_ALLOW;
+                    write(m_box->fanotify_info.fd_read_write_execute, &response, sizeof(response));
+                    strncat(mask, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
+                }
+                #endif
+            }
             
             #ifdef FAN_ONDIR
             if (metadata->mask & FAN_ONDIR) {
