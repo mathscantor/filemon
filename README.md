@@ -13,7 +13,11 @@ All events are properly logged with a timestamp, process name, PID, file/directo
 To compile filemon, simply run the following command:
 
 ```bash
+# By default, filemon will be a dynamically linked binary. (all / shared)
 $ make clean all
+
+# Alternatively, you may want to compile a static version of filemon.
+$ make clean static
 ```
 
 A successfully built Filemon will be generated in **build/filemon**.
