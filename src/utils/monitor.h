@@ -192,7 +192,7 @@ monitor_box_t* init_monitor_box(char* parent_path, char* mount_path,
             strncat(m_box->fanotify_info.mask_read_write_execute, "FAN_OPEN_EXEC_PERM, ", strlen("FAN_OPEN_EXEC_PERM, ") + 1);
             #endif
         } else {
-            log_message(WARNING, 1, "Current kernel was built with CONFIG_FANOTIFY_ACCESS_PERMS=n. Not using FAN_*_PERM Flags...\n");
+            log_message(INFO, 1, "Not using fanotify permission masks...\n");
         }
 
         m_box->fanotify_info.mask_read_write_execute[strlen(m_box->fanotify_info.mask_read_write_execute) - 2] = '\0';
