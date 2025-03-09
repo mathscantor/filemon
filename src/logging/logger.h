@@ -1,5 +1,5 @@
-#ifndef LOGGER_H
-#define LOGGER_H
+#ifndef LOGGING_LOGGER_H
+#define LOGGING_LOGGER_H
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -24,8 +24,8 @@ typedef struct Logger{
     FILE* f_logfile;
 } logger_t;
 
-void logger_init(int verbosity_level, char* logfile);
-void log_message(Severity sev, int show_time, const char *format, ...);
+void logger_init(int, char*);
+void log_message(Severity, int, const char *, const char *, ...);
 
 const char *severity_colors[] = {
     "",                        // NIL
@@ -35,7 +35,12 @@ const char *severity_colors[] = {
     "\x1b[91m[ERR]\x1b[0m "    // ERROR
 };
 
-logger_t g_logger;
+logger_t g_logger = {
+    .verbosity_level = 1,
+    .verbosity_range = {1, 2},
+    .logfile = {0},
+    .f_logfile = NULL
+};
 
 /**
  * @brief 
@@ -44,14 +49,13 @@ logger_t g_logger;
  * @param logfile The file path to the log file.
  */
 void logger_init(int verbosity_level, char* logfile) {
+
     g_logger.verbosity_level = verbosity_level;
-    g_logger.verbosity_range[0] = 1;
-    g_logger.verbosity_range[1] = 2;
+
     if (logfile == NULL) {
-        memset(g_logger.logfile, 0, sizeof(g_logger.logfile));
         g_logger.f_logfile = NULL;
     } else {
-        strncpy(g_logger.logfile, logfile, strlen(logfile));
+        snprintf(g_logger.logfile, PATH_MAX, "%s", logfile);
         g_logger.f_logfile = fopen(g_logger.logfile, "w");
     }
 
@@ -63,15 +67,7 @@ void logger_init(int verbosity_level, char* logfile) {
     }
 }
 
-/**
- * @brief Log a message with a given severity level.
- * 
- * @param sev The severity level of the log message.
- * @param show_time 1 to show time, 0 to not display time.
- * @param format The format string.
- * @param ... 
- */
-void log_message(Severity sev, int show_time, const char *format, ...) {
+void log_message(Severity sev, int show_time, const char *func, const char *format, ...) {
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
@@ -90,7 +86,7 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
     if (g_logger.f_logfile != NULL){
         if (show_time) {
             fprintf(g_logger.f_logfile, 
-                "%02d-%02d-%04d %02d:%02d:%02d.%03d",
+                "[%02d-%02d-%04d %02d:%02d:%02d.%03d",
                 local_time->tm_mday,
                 local_time->tm_mon + 1,
                 local_time->tm_year + 1900,
@@ -99,19 +95,20 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
                 local_time->tm_sec,
                 (int)tv.tv_usec / 1000);
             if (hours_offset >= 0)
-                fprintf(g_logger.f_logfile, " UTC+%02d:%02d%4s", hours_offset, minutes_offset, "");
+                fprintf(g_logger.f_logfile, " UTC+%02d:%02d] ", hours_offset, minutes_offset);
             else {
-                fprintf(g_logger.f_logfile, " UTC-%02d:%02d%4s", abs(hours_offset), minutes_offset, "");
+                fprintf(g_logger.f_logfile, " UTC-%02d:%02d] ", abs(hours_offset), minutes_offset);
             }
         }
-        va_start(args, format);
         fprintf(g_logger.f_logfile, "%s", severity_colors[sev]);
+        fprintf(g_logger.f_logfile, "%s:: ", func);
+        va_start(args, format);
         vfprintf(g_logger.f_logfile, format, args);
         fflush(g_logger.f_logfile);
         va_end(args);
     } else {
         if (show_time) {
-            printf("%02d-%02d-%04d %02d:%02d:%02d.%03d",
+            printf("[%02d-%02d-%04d %02d:%02d:%02d.%03d",
                 local_time->tm_mday,
                 local_time->tm_mon + 1,
                 local_time->tm_year + 1900,
@@ -120,13 +117,14 @@ void log_message(Severity sev, int show_time, const char *format, ...) {
                 local_time->tm_sec,
                 (int)tv.tv_usec / 1000);
             if (hours_offset >= 0)
-                printf(" UTC+%02d:%02d%4s", hours_offset, minutes_offset, "");
+                printf(" UTC+%02d:%02d] ", hours_offset, minutes_offset);
             else {
-                printf(" UTC-%02d:%02d%4s", abs(hours_offset), minutes_offset, "");
+                printf(" UTC-%02d:%02d] ", abs(hours_offset), minutes_offset);
             }
         }
-        va_start(args, format);
         printf("%s", severity_colors[sev]);
+        printf("%s:: ", func);
+        va_start(args, format);
         vprintf(format, args);
         va_end(args);
     }
