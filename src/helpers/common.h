@@ -43,7 +43,6 @@ bool is_in_uint32_array(uint32_t *haystack, size_t size, uint32_t needle);
 char *concatenate_process_names(char [][MAX_PROCESS_NAME_LEN], size_t);
 bool is_in_process_names(char [][MAX_PROCESS_NAME_LEN], size_t, char *);
 
-
 /**
  * @brief Get the path from fd object
  * 
@@ -103,6 +102,12 @@ char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
 }
 
 void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
+
+    if (strcmp(comm, comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]) == 0) {
+        // log_message(DEBUG, 1, __func__, "Cache index %d already contains \"%s\". Ignoring...\n", pid % MAX_COMM_CACHE_SIZE, comm);
+        return;
+    }
+        
     memset(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE], 0, MAX_PROCESS_NAME_LEN);
     snprintf(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE], MAX_PROCESS_NAME_LEN, "%s", comm);
     return;
