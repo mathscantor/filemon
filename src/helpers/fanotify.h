@@ -144,20 +144,18 @@ uint32_t fanotify_helper_determine_flags(int fan_fd, uint64_t masks, char *mount
      */
     flags = FAN_MARK_ADD | FAN_MARK_FILESYSTEM;
     if (fanotify_mark(fan_fd, flags, masks, AT_FDCWD, mount_path) == 0) {
-        goto cleanup_test;
+        fanotify_mark(fan_fd, FAN_MARK_FLUSH | FAN_MARK_FILESYSTEM, 0, 0, NULL);
+        return flags;
     } 
     #endif
 
     flags = FAN_MARK_ADD | FAN_MARK_MOUNT;
     if (fanotify_mark(fan_fd, flags, masks, AT_FDCWD, mount_path) == 0) {
-        goto cleanup_test;
+        fanotify_mark(fan_fd, FAN_MARK_FLUSH | FAN_MARK_MOUNT, 0, 0, NULL);
+        return flags;
     }
 
     return 0;
-
-cleanup_test:
-    fanotify_mark(fan_fd, FAN_MARK_FLUSH, 0, 0, NULL);
-    return flags;
 }
 
 /**

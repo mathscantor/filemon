@@ -7,18 +7,41 @@
 #include <stdint.h>
 
 #include "../helpers/common.h"
+#include "../helpers/mount.h"
 
 typedef struct {
+
+    /* Verboisty Level */
     uint16_t oopts_verbose;
+
+    /* Target Mounts */
+    char oopts_mounts[MAX_MOUNT_POINTS][PATH_MAX];
+    size_t oopts_num_mounts;
+
+    /* Include Path Regex Pattern */
     char oopts_include_path_pattern[MAX_REGEX_LEN];
     regex_t *oopts_include_path_regex;
+
+    /* Exclude Path Regex Pattern */
     char oopts_exclude_path_pattern[MAX_REGEX_LEN];
     regex_t *oopts_exclude_path_regex;
+
+    /* Output File */
     char *oopts_output;
+
+    /* Include PIDs */
     uint32_t oopts_include_pids[MAX_PROCESS_FILTER];
+
+    /* Exclude PIDs */
     uint32_t oopts_exclude_pids[MAX_PROCESS_FILTER];
+
+    /* Include Proccess Names */
     char oopts_include_process[MAX_PROCESS_FILTER][MAX_PROCESS_NAME_LEN];
+
+    /* Exclude Process Names*/
     char oopts_exclude_process[MAX_PROCESS_FILTER][MAX_PROCESS_NAME_LEN];
+
+    /* Enable Permission Checks */
     bool oopts_enable_perms_check;
 } user_args_t;
 
@@ -30,9 +53,12 @@ user_args_t parse_args(int argc, char* argv[]) {
     int opt;
     int option_index = 0;
     char* token;
+    size_t total_num_mounts;
 
     user_args_t user_args = {
         .oopts_verbose = 1,
+        .oopts_mounts = { "/", "", "", "", "" },
+        .oopts_num_mounts = 1,
         .oopts_include_path_pattern = {0},
         .oopts_include_path_regex = NULL,
         .oopts_exclude_path_pattern = {0},
@@ -48,6 +74,7 @@ user_args_t parse_args(int argc, char* argv[]) {
     struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
         {"verbose", no_argument, 0, 'v'},
+        {"mounts", required_argument, 0, 'm'},
         {"include-path-pattern", required_argument, 0, 'i'},
         {"exclude-path-pattern", required_argument, 0, 'e'},
         {"output", required_argument, 0, 'o'},
@@ -59,7 +86,7 @@ user_args_t parse_args(int argc, char* argv[]) {
         {0, 0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "hvi:e:o:I:E:N:X:P", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hvm:i:e:o:I:E:N:X:P", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 usage();
@@ -67,6 +94,32 @@ user_args_t parse_args(int argc, char* argv[]) {
                 break;
             case 'v':
                 user_args.oopts_verbose = 2; 
+                break;
+            case 'm':
+                if (optarg[0] == '\0') {
+                    log_message(ERROR, 1, __func__, "-%c option: No mount points were specified! Please state at least one!\n", opt);
+                    exit(EXIT_FAILURE);
+                }
+
+                char **all_mounts = get_all_mount_points(&total_num_mounts);
+                if (!all_mounts) {
+                    log_message(ERROR, 1, __func__, "-%c option: Failed to get relevant mount points!\n", opt);
+                    exit(EXIT_FAILURE);
+                }
+                user_args.oopts_num_mounts = 0;
+                token = strtok(optarg, " ");
+                for (int i = 0; i < MAX_MOUNT_POINTS; i++) {
+                    if (token == NULL) 
+                        break;
+                    if (!is_mount_point(token, all_mounts, total_num_mounts)) {
+                        log_message(ERROR, 1, __func__, "-%c option: \"%s\" is not a mount point!\n", opt, token);
+                        exit(EXIT_FAILURE);
+                    }
+                    snprintf(user_args.oopts_mounts[i], PATH_MAX, "%s", token);
+                    user_args.oopts_num_mounts++;
+                    token = strtok(NULL, " ");
+                    
+                }
                 break;
             case 'i':
                 if (user_args.oopts_exclude_path_regex){

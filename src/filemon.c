@@ -17,14 +17,14 @@
 #include "helpers/mount.h"
 
 monitor_box_t **m_boxes;
-uint32_t num_mounts = 0;
+struct sigaction action;
+user_args_t user_args;
 
-void sigint_handler();
-void usage();
+void signal_handler(int);
 
 int main(int argc, char *argv[]) {
 
-    user_args_t user_args = parse_args(argc, argv);
+    user_args = parse_args(argc, argv);
 
     if (user_args.oopts_output)
         logger_init(user_args.oopts_verbose, user_args.oopts_output); 
@@ -43,24 +43,19 @@ int main(int argc, char *argv[]) {
     }
     log_message(INFO, 1, __func__, "Starting filemon...\n");
 
-    // Set up signal handler for SIGINT
-    if (signal(SIGINT, sigint_handler) == SIG_ERR) {
-        log_message(ERROR, 1, __func__, " Failed to set up signal handler\n"); // TODO __func__
+    // Set up signal handler
+    action.sa_handler = signal_handler;
+    if (sigaction(SIGINT, &action, 0) == -1) {
+        log_message(ERROR, 1, __func__, " Failed to set up SIGINT handler\n"); 
         exit(EXIT_FAILURE);
     }
 
-    char **mounts = get_relevant_mount_points(&num_mounts);
-    if (!mounts) {
-        log_message(ERROR, 1, __func__, "Failed to set up signal handler\n");
-        exit(EXIT_FAILURE);
-    }
-
-    m_boxes = (monitor_box_t **)malloc(num_mounts * sizeof(monitor_box_t *));
-    for (uint32_t i = 0; i < num_mounts; i++) {
+    m_boxes = (monitor_box_t **)malloc(user_args.oopts_num_mounts * sizeof(monitor_box_t *));
+    for (uint32_t i = 0; i < user_args.oopts_num_mounts; i++) {
         m_boxes[i] = (monitor_box_t *)malloc(sizeof(monitor_box_t));
-        init_monitor_box(m_boxes[i], &user_args, mounts[i]);
+        init_monitor_box(m_boxes[i], &user_args, user_args.oopts_mounts[i]);
     }
-    begin_monitor(m_boxes, num_mounts);
+    begin_monitor(m_boxes, user_args.oopts_num_mounts);
 
     return 0;
 }
@@ -70,8 +65,17 @@ int main(int argc, char *argv[]) {
  * 
  * @param signum 
  */
-void sigint_handler() {
-    stop_monitor(m_boxes, num_mounts);
-    exit(EXIT_SUCCESS);
+void signal_handler(int sig) {
+
+    switch(sig) {
+        case SIGINT:
+            log_message(DEBUG, 1, __func__, "Signal %d - SIGINT received!\n", sig);
+            stop_monitor(m_boxes, user_args.oopts_num_mounts);
+            exit(EXIT_SUCCESS);
+            break;
+        default:
+            log_message(DEBUG, 1, __func__, "Unknown Signal %d received!\n", sig);
+    }
+
 }
 

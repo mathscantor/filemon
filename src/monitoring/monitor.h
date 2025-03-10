@@ -43,8 +43,7 @@ typedef struct {
     monitor_box_t* m_box;
 } thread_arg_t;
 
-pthread_t *read_write_execute_threads = NULL;
-pthread_t *create_delete_move_threads = NULL;
+bool g_monitor_force_stop = false;
 
 void init_monitor_box(monitor_box_t *,user_args_t *, char *);
 void begin_monitor(monitor_box_t **, size_t);
@@ -54,7 +53,6 @@ void handle_rwe_events(monitor_box_t *);
 void *handle_rwe_events_thread(void *);
 void handle_cdm_events(monitor_box_t *);
 void *handle_cdm_events_thread(void *);
-
 
 void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_path) {
 
@@ -93,7 +91,17 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     }
 
     //Poppulate the monitor box
-    m_box->fanotify_info.read_write_execute.fan_fd = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT | FAN_NONBLOCK, O_RDONLY | O_LARGEFILE);
+    memcpy(m_box->fanotify_info.mount_path, mount_path, PATH_MAX);
+    memcpy(m_box->filters.include_pids, user_args->oopts_include_pids, sizeof(user_args->oopts_include_pids));
+    memcpy(m_box->filters.exclude_pids, user_args->oopts_exclude_pids, sizeof(user_args->oopts_exclude_pids));
+    memcpy(m_box->filters.include_process, user_args->oopts_include_process, sizeof(user_args->oopts_include_process));
+    memcpy(m_box->filters.exclude_process, user_args->oopts_exclude_process, sizeof(user_args->oopts_exclude_process));
+    memcpy(m_box->filters.include_path_pattern, user_args->oopts_include_path_pattern, sizeof(user_args->oopts_include_path_pattern));
+    m_box->filters.include_path_regex = user_args->oopts_include_path_regex;
+    memcpy(m_box->filters.exclude_path_pattern, user_args->oopts_exclude_path_pattern, sizeof(user_args->oopts_exclude_path_pattern));
+    m_box->filters.exclude_path_regex = user_args->oopts_exclude_path_regex;
+    
+    m_box->fanotify_info.read_write_execute.fan_fd = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT, O_RDONLY | O_LARGEFILE);
     if (m_box->fanotify_info.read_write_execute.fan_fd == -1) {
         return;
     }
@@ -144,6 +152,10 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
         #endif
     }
 
+    m_box->fanotify_info.read_write_execute.flags = fanotify_helper_determine_flags(m_box->fanotify_info.read_write_execute.fan_fd, 
+                                                                                    m_box->fanotify_info.read_write_execute.masks, 
+                                                                                    mount_path);
+
     #ifdef FAN_REPORT_DFID_NAME
     m_box->fanotify_info.create_delete_move.fan_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
     if (m_box->fanotify_info.create_delete_move.fan_fd  == -1) {
@@ -171,25 +183,17 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     #endif
 
     #ifdef FAN_MOVED_TO
-    m_box->fanotify_info.create_delete_move.masks |=FAN_MOVED_TO;
+    m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_TO;
     #endif
-    #endif  
-    
-    m_box->fanotify_info.read_write_execute.flags = fanotify_helper_determine_flags(m_box->fanotify_info.read_write_execute.fan_fd, 
-                                                                                   m_box->fanotify_info.read_write_execute.masks, 
-                                                                                   mount_path);
+
+    #ifdef FAN_ATTRIB
+    m_box->fanotify_info.create_delete_move.masks |= FAN_ATTRIB;
+    #endif
+
     m_box->fanotify_info.create_delete_move.flags = fanotify_helper_determine_flags(m_box->fanotify_info.create_delete_move.fan_fd, 
-                                                                                   m_box->fanotify_info.create_delete_move.masks, 
-                                                                                   mount_path);
-    memcpy(m_box->fanotify_info.mount_path, mount_path, PATH_MAX);
-    memcpy(m_box->filters.include_pids, user_args->oopts_include_pids, sizeof(user_args->oopts_include_pids));
-    memcpy(m_box->filters.exclude_pids, user_args->oopts_exclude_pids, sizeof(user_args->oopts_exclude_pids));
-    memcpy(m_box->filters.include_process, user_args->oopts_include_process, sizeof(user_args->oopts_include_process));
-    memcpy(m_box->filters.exclude_process, user_args->oopts_exclude_process, sizeof(user_args->oopts_exclude_process));
-    memcpy(m_box->filters.include_path_pattern, user_args->oopts_include_path_pattern, sizeof(user_args->oopts_include_path_pattern));
-    m_box->filters.include_path_regex = user_args->oopts_include_path_regex;
-    memcpy(m_box->filters.exclude_path_pattern, user_args->oopts_exclude_path_pattern, sizeof(user_args->oopts_exclude_path_pattern));
-    m_box->filters.exclude_path_regex = user_args->oopts_exclude_path_regex;
+                                                                                    m_box->fanotify_info.create_delete_move.masks, 
+                                                                                    mount_path);
+    #endif  
     return;
 }
 
@@ -201,29 +205,44 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
 void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
 
     int ret;
+    size_t num_running_threads = 0;
 
-    read_write_execute_threads = (pthread_t *)malloc(num_boxes * sizeof(pthread_t));
-    create_delete_move_threads = (pthread_t *)malloc(num_boxes * sizeof(pthread_t));
+    pthread_t *monitoring_threads = (pthread_t *)malloc(num_boxes * 2 * sizeof(pthread_t));
     for (size_t i = 0; i < num_boxes; i++) {
-        ret = fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, 
-                            m_boxes[i]->fanotify_info.read_write_execute.flags, 
-                            m_boxes[i]->fanotify_info.read_write_execute.masks, 
-                            AT_FDCWD, 
-                            m_boxes[i]->fanotify_info.mount_path);
-
-        print_box(m_boxes[i], i + 1);
-        if (ret == -1) {
-            log_message(WARNING, 1, __func__, "Unable to fanotify_mark on \"%s\" mount!\n", m_boxes[i]->fanotify_info.mount_path);
-            continue;
-        }
+        print_box(m_boxes[i], i);
         thread_arg_t args = { .m_box = m_boxes[i] };
-        log_message(DEBUG, 1, __func__, "Spawning thread to monitor read/write/execute events on \"%s\" mount...\n", m_boxes[i]->fanotify_info.mount_path);
-        if (pthread_create(&read_write_execute_threads[i], NULL, handle_rwe_events_thread, &args) != 0) {
-            log_message(WARNING, 1, __func__, "Unable to create thread to monitor read/write/execute events on \"%s\" mount\n", m_boxes[i]->fanotify_info.mount_path);
+
+        ret = fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, 
+            m_boxes[i]->fanotify_info.read_write_execute.flags, 
+            m_boxes[i]->fanotify_info.read_write_execute.masks,
+            AT_FDCWD, 
+            m_boxes[i]->fanotify_info.mount_path);
+        if (ret == 0) {
+            log_message(DEBUG, 1, __func__, "Spawning thread to monitor read/write/execute events on \"%s\" mount...\n", m_boxes[i]->fanotify_info.mount_path);
+            if (pthread_create(&monitoring_threads[i], NULL, handle_rwe_events_thread, &args) != 0) {
+                log_message(WARNING, 1, __func__, "Unable to create thread to monitor read/write/execute events on \"%s\" mount\n", m_boxes[i]->fanotify_info.mount_path);
+            } else {
+                num_running_threads++;
+            }
+        } else {
+            log_message(WARNING, 1, __func__, "Unable to fanotify_mark with read/write/execute masks on \"%s\" mount!\n", m_boxes[i]->fanotify_info.mount_path);
         }
-        log_message(DEBUG, 1, __func__, "Spawning thread to monitor create/delete/move events on \"%s\" mount...\n", m_boxes[i]->fanotify_info.mount_path);
-        if (pthread_create(&create_delete_move_threads[i], NULL, handle_cdm_events_thread, &args) != 0) {
-            log_message(WARNING, 1, __func__, "Unable to create thread to monitor create/delete/move events on \"%s\" mount\n", m_boxes[i]->fanotify_info.mount_path);
+        
+
+        ret = fanotify_mark(m_boxes[i]->fanotify_info.create_delete_move.fan_fd, 
+            m_boxes[i]->fanotify_info.create_delete_move.flags, 
+            m_boxes[i]->fanotify_info.create_delete_move.masks, 
+            AT_FDCWD, 
+            m_boxes[i]->fanotify_info.mount_path);
+        if (ret == 0) {
+            log_message(DEBUG, 1, __func__, "Spawning thread to monitor create/delete/move events on \"%s\" mount...\n", m_boxes[i]->fanotify_info.mount_path);
+            if (pthread_create(&monitoring_threads[i + 1], NULL, handle_cdm_events_thread, &args) != 0) {
+                log_message(WARNING, 1, __func__, "Unable to create thread to monitor create/delete/move events on \"%s\" mount\n", m_boxes[i]->fanotify_info.mount_path);
+            } else {
+                num_running_threads++;
+            }
+        } else {
+            log_message(WARNING, 1, __func__, "Unable to fanotify_mark with create/delete/move masks on \"%s\" mount!\n", m_boxes[i]->fanotify_info.mount_path);
         }
     }
 
@@ -231,11 +250,18 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
         printf("[+] Successfully started filemon.\n");
         printf("[+] All output is redirected to \"%s\"\n", get_full_path(g_logger.logfile));
     }
-    log_message(INFO, 1, __func__, "Successfully started filemon!\n");
-    for (size_t i = 0; i < num_boxes; i++) {
-        pthread_join(read_write_execute_threads[i], NULL);
-        pthread_join(create_delete_move_threads[i], NULL);
+
+    if (num_running_threads > 0) {
+        log_message(INFO, 1, __func__, "There are %lu monitoring threads! Successfully started filemon!\n", num_running_threads);
+        for (size_t i = 0; i < num_running_threads; i++) {
+            pthread_join(monitoring_threads[i], NULL);
+        }
     }
+    else {
+        log_message(ERROR, 1, __func__, "There are 0 monitoring threads! Failed to start filemon!\n");
+    }
+
+    return;
 }
 
 void* handle_rwe_events_thread(void* arg) {
@@ -343,6 +369,7 @@ next_event:
             metadata = FAN_EVENT_NEXT(metadata, buflen);
         }
     }
+
     return;
 }
 
@@ -360,7 +387,7 @@ void* handle_cdm_events_thread(void* arg) {
 
     pfd.fd = m_box->fanotify_info.create_delete_move.fan_fd;
     pfd.events = POLLIN;
-
+    
     int ret = poll(&pfd, 1, -1);
     if (ret <= 0) {
         log_message(ERROR, 1, __func__, "Error polling fanotify FD (%d) for create/delete/move events on \"%s\" mount!\n", 
@@ -371,7 +398,6 @@ void* handle_cdm_events_thread(void* arg) {
     for (;;) {
         if (pfd.revents & POLLIN) {
             handle_cdm_events(m_box);
-            sleep(1);
         }
     }
     return NULL;
