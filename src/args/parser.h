@@ -8,6 +8,7 @@
 
 #include "../helpers/common.h"
 #include "../helpers/mount.h"
+#include "../helpers/fanotify.h"
 
 typedef struct {
 
@@ -241,6 +242,10 @@ user_args_t parse_args(int argc, char* argv[]) {
                 }
                 break;
             case 'P':
+                if (!has_config_fanotify_access_perms()) {
+                    log_message(ERROR, 1, __func__, "Unable to enable permission checks as kernel does not support this feature!\n");
+                    exit(EXIT_FAILURE);
+                }
                 user_args.oopts_enable_perms_check = true;
                 break;
             default:
