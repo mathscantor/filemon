@@ -261,13 +261,14 @@ user_args_t parse_args(int argc, char* argv[]) {
  * 
  */
 void usage(void){
-    printf("Usage: filemon DIRECTORY [-h] [-v] [-o OUTPUT]\n" 
+    printf("Usage: filemon DIRECTORY [-h] [-v] [-m MOUNTS] [-o OUTPUT]\n" 
     "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]\n"
     "%15s[-I INCLUDE_PIDS | -E EXCLUDE_PIDS]\n"
     "%15s[-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P]\n", "", "", "");
     printf("Options:\n");
     printf("  %-30s %s\n", "-h  | --help", "Show help");
     printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
+    printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor. Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
     printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
     printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
     printf("  %-30s %s\n", "-o  | --output", "Output to file");
