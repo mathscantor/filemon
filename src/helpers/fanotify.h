@@ -38,8 +38,8 @@ typedef struct {
     char mount_path[PATH_MAX];
 } fanotify_info_t;
 
-bool has_config_fanotify();
-bool has_config_fanotify_access_perms();
+bool has_config_fanotify(void);
+bool has_config_fanotify_access_perms(void);
 uint32_t fanotify_helper_determine_flags(int, uint64_t, char *);
 void fanotify_helper_flags_to_string(uint32_t, char *, size_t);
 void fanotify_helper_masks_to_string(uint64_t, char *, size_t);
@@ -49,7 +49,7 @@ void fanotify_helper_masks_to_string(uint64_t, char *, size_t);
  * 
  * @return true if CONFIG_FANOTIFY=y. Otherwise, returns false.
  */
-bool has_config_fanotify() {
+bool has_config_fanotify(void) {
     struct utsname uname_data;
     FILE *file;
     char filepath[256];
@@ -88,7 +88,7 @@ bool has_config_fanotify() {
  * 
  * @return  true if CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y. Otherwise, returns false.
  */
-bool has_config_fanotify_access_perms() {
+bool has_config_fanotify_access_perms(void) {
     struct utsname uname_data;
     FILE *file;
     char filepath[256];

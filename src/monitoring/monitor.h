@@ -37,6 +37,7 @@ typedef struct {
     bool enable_perms_check;
     fanotify_info_t fanotify_info;
     filters_t filters;
+    comm_cache_t comm_cache;
 } monitor_box_t;
 
 typedef struct {
@@ -82,6 +83,9 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
             .include_path_regex = NULL,
             .exclude_path_pattern = {0},
             .exclude_path_regex = NULL
+        },
+        .comm_cache = {
+            .comms = {{0}}
         }
     };
 
@@ -300,12 +304,27 @@ void handle_rwe_events(monitor_box_t *m_box) {
     struct fanotify_response response;
     char masks[MAX_MASKS_LEN] = {0};
 
+    char *comm = NULL;
+    char *full_path = NULL;
+
     buflen = read(m_box->fanotify_info.read_write_execute.fan_fd, buf, sizeof(buf));
     if (buflen > 0) {
         metadata = (struct fanotify_event_metadata *)buf;
         while (FAN_EVENT_OK(metadata, buflen)) {
-            char *comm = get_comm_from_pid(metadata->pid);
-            char *full_path = get_path_from_fd(metadata->fd);
+
+            /* Process name search with caching logic */
+            comm = get_comm_from_pid((uint32_t)metadata->pid);
+            if (comm != NULL) {
+                set_comm_to_cache((uint32_t)metadata->pid, comm, &m_box->comm_cache);
+                // log_message(DEBUG, 1, __func__, "Set comm to cache: %s\n", comm);
+            } else {
+                comm = get_comm_from_cache((uint32_t)metadata->pid, &m_box->comm_cache);
+                // log_message(DEBUG, 1, __func__, "Got comm from cache: %s\n", comm);
+            }
+            if (comm == NULL) 
+                comm = strdup("unknown-process");
+            
+            full_path = get_path_from_fd(metadata->fd);
             if (m_box->fanotify_info.is_config_fanotify_access_permissions_enabled && m_box->enable_perms_check)  {
 
                 #ifdef FAN_OPEN_PERM
@@ -419,17 +438,31 @@ void handle_cdm_events(monitor_box_t* m_box) {
     struct fanotify_event_info_fid *fid;
     char full_path[PATH_MAX];
     char masks[MAX_MASKS_LEN] = {0};
+    char *comm = NULL;
 
     buflen = read(m_box->fanotify_info.create_delete_move.fan_fd, buf, sizeof(buf));
 
     if (buflen > 0) {
         metadata = (struct fanotify_event_metadata*)&buf;
         while (FAN_EVENT_OK(metadata, buflen)) {
-            char* comm = get_comm_from_pid(metadata->pid);
+            
+            /* Process name search up with caching logic */
+            comm = get_comm_from_pid((uint32_t)metadata->pid);
+            if (comm != NULL) {
+                set_comm_to_cache((uint32_t)metadata->pid, comm, &m_box->comm_cache);
+                // log_message(DEBUG, 1, __func__, "Set comm to cache: %s\n", comm);
+            } else {
+                comm = get_comm_from_cache((uint32_t)metadata->pid, &m_box->comm_cache);
+                // log_message(DEBUG, 1, __func__, "Got comm from cache: %s\n", comm);
+            }
+            if (comm == NULL) {
+                comm = strdup("unknown-process");
+            }
+
             mount_fd = open(m_box->fanotify_info.mount_path, O_DIRECTORY | O_RDONLY);
             if (mount_fd == -1) {
                 log_message(WARNING, 1, __func__, "Unable to open \"%s\" mount!\n", m_box->fanotify_info.mount_path);
-                sleep(5); // Wait for 5 seconds before trying to open the mount point again.
+                sleep(5);
                 return;
             }
 
@@ -437,7 +470,6 @@ void handle_cdm_events(monitor_box_t* m_box) {
             file_handle = (struct file_handle *) fid->handle;
 
             /* Ensure that the event info is of the correct type. */
-
             if (fid->hdr.info_type == FAN_EVENT_INFO_TYPE_FID || fid->hdr.info_type == FAN_EVENT_INFO_TYPE_DFID) {
                 file_name = NULL;
             } else if (fid->hdr.info_type == FAN_EVENT_INFO_TYPE_DFID_NAME) {

@@ -24,9 +24,15 @@
 #define MAX_PROCESS_FILTER 64
 #define MAX_REGEX_LEN 1024
 #define MAX_PROCESS_NAME_LEN 16
+#define MAX_COMM_CACHE_SIZE 1024
+
+typedef struct {
+    char comms[MAX_COMM_CACHE_SIZE][MAX_PROCESS_NAME_LEN];
+} comm_cache_t;
 
 char *get_path_from_fd(int fd);
-char *get_comm_from_pid(int pid);
+char *get_comm_from_pid(uint32_t pid);
+char *get_comm_from_cache(uint32_t pid, comm_cache_t *);
 bool path_exists(const char* path);
 bool is_directory(const char* path);
 bool regex_search(regex_t *, const char* );
@@ -65,15 +71,16 @@ char *get_path_from_fd(int fd) {
  * @param pid The PID of the process that triggered the fan event.
  * @return char* The process name.
  */
-char* get_comm_from_pid(int pid){
-    char* comm_path = (char*)malloc(PATH_MAX);
-    char* comm = (char*)malloc(16);
+char *get_comm_from_pid(uint32_t pid){
+
+    char *comm = (char*)malloc(MAX_PROCESS_NAME_LEN);
+    char *comm_path = (char*)malloc(PATH_MAX);
     snprintf(comm_path, PATH_MAX, "/proc/%d/comm", pid);
     FILE *comm_file = fopen(comm_path, "r");
 
     if (comm_file == NULL) {
         // unknown because the short-lived process already finished before we can even get the name
-        return "unknown-process";
+        return NULL;
     }
 
     if (fgets(comm, 16, comm_file)) {
@@ -81,9 +88,24 @@ char* get_comm_from_pid(int pid){
     }
     close(fileno(comm_file));
     if (comm[0] == '\0' || comm[0] == ' ') {
-        return "unknown-process";
+        return NULL;
     }
+
     return comm;
+}
+
+char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
+   
+    if (comm_cache->comms[pid % MAX_COMM_CACHE_SIZE][0] == '\0')
+        return NULL;
+
+    return comm_cache->comms[pid % MAX_COMM_CACHE_SIZE];
+}
+
+void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
+    memset(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE], 0, MAX_PROCESS_NAME_LEN);
+    snprintf(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE], MAX_PROCESS_NAME_LEN, "%s", comm);
+    return;
 }
 
 bool path_exists(const char* path) {
