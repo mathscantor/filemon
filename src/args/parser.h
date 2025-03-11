@@ -253,6 +253,12 @@ user_args_t parse_args(int argc, char* argv[]) {
                 exit(EXIT_FAILURE);
         }
     }
+
+    if (optind < argc) {
+        log_message(ERROR, 1, __func__, "filemon does not take in any positional arguments! See usage.\n\n");
+        usage();
+        exit(EXIT_FAILURE);
+    }
     return user_args;
 }
 
