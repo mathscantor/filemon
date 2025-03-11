@@ -67,8 +67,15 @@ void logger_init(int verbosity_level, char *logfile) {
     if (logfile == NULL) {
         g_logger.log_file.f = NULL;
     } else {
-        snprintf(g_logger.log_file.fullpath, PATH_MAX, "%s", logfile);
-        g_logger.log_file.f = fopen(g_logger.log_file.fullpath, "w");
+        g_logger.log_file.f = fopen(logfile, "w");
+        if (g_logger.log_file.f == NULL) {
+            log_message(ERROR, 1, __func__, "Unable to fopen on \"%s\"\n", logfile);
+            exit(EXIT_FAILURE);
+        }
+        if(realpath(logfile, g_logger.log_file.fullpath) == NULL) {
+            log_message(ERROR, 1, __func__, "Unable to resolve full path of \"%s\"\n", logfile);
+            exit(EXIT_FAILURE);
+        }
     }
 
     // Check if verbosity level is within range

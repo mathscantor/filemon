@@ -139,6 +139,7 @@ bool regex_search(regex_t *expr, const char* haystack) {
 }
 
 char *get_full_path(const char *path) {
+    
     char *resolved_path = malloc(PATH_MAX);
     if (resolved_path == NULL) {
         log_message(ERROR, 1, __func__, "Unable to malloc for resolved_path\n");
