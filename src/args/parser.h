@@ -167,7 +167,7 @@ user_args_t parse_args(int argc, char* argv[]) {
                     log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt);
                     exit(EXIT_FAILURE);
                 }
-                user_args.oopts_output = optarg;
+                user_args.oopts_output = get_full_path(optarg);
                 break;
             case 'I':
                 token = strtok(optarg, " ");

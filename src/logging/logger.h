@@ -6,6 +6,8 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include "../helpers/common.h"
+
 #define GREEN_TICK "\x1b[92m\u2714\x1b[0m"
 #define RED_CROSS "\x1b[91m\u2718\x1b[0m"
 
@@ -17,11 +19,17 @@ typedef enum {
     ERROR
 } Severity;
 
-typedef struct Logger{
+typedef struct {
+    char fullpath[PATH_MAX];
+    FILE *f;
+    char *filetype;
+    char *supported_filetypes[4];
+} log_file_t;
+
+typedef struct {
     int verbosity_level;
     int verbosity_range[2];
-    char logfile[PATH_MAX];
-    FILE* f_logfile;
+    log_file_t log_file;
 } logger_t;
 
 void logger_init(int, char*);
@@ -38,8 +46,12 @@ const char *severity_colors[] = {
 logger_t g_logger = {
     .verbosity_level = 1,
     .verbosity_range = {1, 2},
-    .logfile = {0},
-    .f_logfile = NULL
+    .log_file = {
+        .fullpath = {0},
+        .f = NULL,
+        .filetype = NULL,
+        .supported_filetypes = {"txt", "csv", "json", "jsonl"}
+    }
 };
 
 /**
@@ -48,15 +60,15 @@ logger_t g_logger = {
  * @param verbosity_level Determines if debug messages will be logged.
  * @param logfile The file path to the log file.
  */
-void logger_init(int verbosity_level, char* logfile) {
+void logger_init(int verbosity_level, char *logfile) {
 
     g_logger.verbosity_level = verbosity_level;
 
     if (logfile == NULL) {
-        g_logger.f_logfile = NULL;
+        g_logger.log_file.f = NULL;
     } else {
-        snprintf(g_logger.logfile, PATH_MAX, "%s", logfile);
-        g_logger.f_logfile = fopen(g_logger.logfile, "w");
+        snprintf(g_logger.log_file.fullpath, PATH_MAX, "%s", logfile);
+        g_logger.log_file.f = fopen(g_logger.log_file.fullpath, "w");
     }
 
     // Check if verbosity level is within range
@@ -83,9 +95,9 @@ void log_message(Severity sev, int show_time, const char *func, const char *form
     }
 
     va_list args;
-    if (g_logger.f_logfile != NULL){
+    if (g_logger.log_file.f != NULL){
         if (show_time) {
-            fprintf(g_logger.f_logfile, 
+            fprintf(g_logger.log_file.f, 
                 "[%02d-%02d-%04d %02d:%02d:%02d.%03d",
                 local_time->tm_mday,
                 local_time->tm_mon + 1,
@@ -95,16 +107,16 @@ void log_message(Severity sev, int show_time, const char *func, const char *form
                 local_time->tm_sec,
                 (int)tv.tv_usec / 1000);
             if (hours_offset >= 0)
-                fprintf(g_logger.f_logfile, " UTC+%02d:%02d] ", hours_offset, minutes_offset);
+                fprintf(g_logger.log_file.f, " UTC+%02d:%02d] ", hours_offset, minutes_offset);
             else {
-                fprintf(g_logger.f_logfile, " UTC-%02d:%02d] ", abs(hours_offset), minutes_offset);
+                fprintf(g_logger.log_file.f, " UTC-%02d:%02d] ", abs(hours_offset), minutes_offset);
             }
         }
-        fprintf(g_logger.f_logfile, "%s", severity_colors[sev]);
-        fprintf(g_logger.f_logfile, "%s:: ", func);
+        fprintf(g_logger.log_file.f, "%s", severity_colors[sev]);
+        fprintf(g_logger.log_file.f, "%s:: ", func);
         va_start(args, format);
-        vfprintf(g_logger.f_logfile, format, args);
-        fflush(g_logger.f_logfile);
+        vfprintf(g_logger.log_file.f, format, args);
+        fflush(g_logger.log_file.f);
         va_end(args);
     } else {
         if (show_time) {

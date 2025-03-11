@@ -250,9 +250,9 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
         }
     }
 
-    if (g_logger.logfile[0] != 0) {
+    if (g_logger.log_file.f) {
         printf("[+] Successfully started filemon.\n");
-        printf("[+] All output is redirected to \"%s\"\n", get_full_path(g_logger.logfile));
+        printf("[+] All output is redirected to \"%s\"\n", g_logger.log_file.fullpath);
     }
 
     if (num_running_threads > 0) {
@@ -553,7 +553,7 @@ next_event:
 
 void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
 
-    if (g_logger.logfile[0] != 0) {
+    if (g_logger.log_file.f) {
         printf("[+] Stopping filemon...\n");
     }
     log_message(INFO, 1, __func__, "Stopping filemon...\n");
@@ -562,9 +562,9 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
         fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, FAN_MARK_FLUSH, 0, 0, NULL);
         SAFE_FREE(m_boxes[i]);
     }
-    if (g_logger.logfile[0] != 0) {
+    if (g_logger.log_file.f) {
         printf("[+] Successfully stopped filemon.\n");
-        printf("[+] To view the logs: less -R \"%s\"\n", get_full_path(g_logger.logfile));
+        printf("[+] To view the logs: less -R \"%s\"\n", g_logger.log_file.fullpath);
     }
     log_message(INFO, 1, __func__, "Successfully stopped filemon!\n");
     return;
