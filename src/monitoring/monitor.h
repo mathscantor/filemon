@@ -256,7 +256,7 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
     }
 
     if (num_running_threads > 0) {
-        log_message(INFO, __func__, "There are %lu monitoring threads! Successfully started filemon!", num_running_threads);
+        log_message(INFO, __func__, "Successfully started filemon (Monitoring threads: %lu).", num_running_threads);
         for (size_t i = 0; i < num_running_threads; i++) {
             pthread_join(monitoring_threads[i], NULL);
         }
