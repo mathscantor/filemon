@@ -34,19 +34,19 @@ int main(int argc, char *argv[]) {
     // Assert root EUID
     __u32 euid = geteuid();
     if (euid != 0) {
-        log_message(ERROR, 1, __func__, "Please run this as root!\n");
+        log_message(ERROR, __func__, "Please run this as root!");
         exit(EXIT_FAILURE);
     }
 
     if (user_args.oopts_output) {
         printf("[+] Starting filemon...\n");
     }
-    log_message(INFO, 1, __func__, "Starting filemon...\n");
+    log_message(INFO, __func__, "Starting filemon...");
 
     // Set up signal handler
     action.sa_handler = signal_handler;
     if (sigaction(SIGINT, &action, 0) == -1) {
-        log_message(ERROR, 1, __func__, " Failed to set up SIGINT handler\n"); 
+        log_message(ERROR, __func__, " Failed to set up SIGINT handler"); 
         exit(EXIT_FAILURE);
     }
 
@@ -69,12 +69,12 @@ void signal_handler(int sig) {
 
     switch(sig) {
         case SIGINT:
-            log_message(DEBUG, 1, __func__, "Signal %d - SIGINT received!\n", sig);
+            log_message(DEBUG, __func__, "Signal %d - SIGINT received!", sig);
             stop_monitor(m_boxes, user_args.oopts_num_mounts);
             exit(EXIT_SUCCESS);
             break;
         default:
-            log_message(DEBUG, 1, __func__, "Unknown Signal %d received!\n", sig);
+            log_message(DEBUG, __func__, "Unknown Signal %d received!", sig);
     }
 
 }

@@ -30,7 +30,7 @@ bool is_mount_point(char *mount, char **all_mounts, size_t total_num_mounts) {
 char **get_all_mount_points(size_t *num_mounts) {
     FILE *fp = fopen("/proc/mounts", "r");
     if (!fp) {
-        log_message(ERROR, 1, __func__, "Error opening \"/proc/mounts\"!\n");
+        log_message(ERROR, __func__, "Error opening \"/proc/mounts\"!");
         *num_mounts = 0;
         return NULL;
     }
@@ -40,17 +40,17 @@ char **get_all_mount_points(size_t *num_mounts) {
     
     char **mount_points = (char **)malloc(OS_MAX_MOUNT_POINTS * sizeof(char*));
     if (!mount_points) {
-        log_message(ERROR, 1, __func__, "Unable to allocate memory for mount point buffers!\n");
+        log_message(ERROR, __func__, "Unable to allocate memory for mount point buffers!");
         fclose(fp);
         *num_mounts = 0;
         return NULL;
     }
 
     *num_mounts = 0;
-    while (fscanf(fp, "%255s %4096s %255s %255s %d %d\n", device, mount_point, fs_type, options, &dump, &pass) == 6) {
+    while (fscanf(fp, "%255s %4096s %255s %255s %d %d", device, mount_point, fs_type, options, &dump, &pass) == 6) {
         mount_points[*num_mounts] = strdup(mount_point);
         if (!mount_points[*num_mounts]) {
-            log_message(ERROR, 1, __func__, " Unable to strdup mount path!\n");
+            log_message(ERROR, __func__, " Unable to strdup mount path!");
             break;
         }
         (*num_mounts)++;

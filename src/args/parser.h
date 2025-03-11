@@ -98,13 +98,13 @@ user_args_t parse_args(int argc, char* argv[]) {
                 break;
             case 'm':
                 if (optarg[0] == '\0') {
-                    log_message(ERROR, 1, __func__, "-%c option: No mount points were specified! Please state at least one!\n", opt);
+                    log_message(ERROR, __func__, "-%c option: No mount points were specified! Please state at least one!", opt);
                     exit(EXIT_FAILURE);
                 }
 
                 char **all_mounts = get_all_mount_points(&total_num_mounts);
                 if (!all_mounts) {
-                    log_message(ERROR, 1, __func__, "-%c option: Failed to get relevant mount points!\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Failed to get relevant mount points!", opt);
                     exit(EXIT_FAILURE);
                 }
                 user_args.oopts_num_mounts = 0;
@@ -113,7 +113,7 @@ user_args_t parse_args(int argc, char* argv[]) {
                     if (token == NULL) 
                         break;
                     if (!is_mount_point(token, all_mounts, total_num_mounts)) {
-                        log_message(ERROR, 1, __func__, "-%c option: \"%s\" is not a mount point!\n", opt, token);
+                        log_message(ERROR, __func__, "-%c option: \"%s\" is not a mount point!", opt, token);
                         exit(EXIT_FAILURE);
                     }
                     snprintf(user_args.oopts_mounts[i], PATH_MAX, "%s", token);
@@ -124,47 +124,47 @@ user_args_t parse_args(int argc, char* argv[]) {
                 break;
             case 'i':
                 if (user_args.oopts_exclude_path_regex){
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used with -e option at the same time.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -e option at the same time.", opt);
                     exit(EXIT_FAILURE);
                 }
                 if (user_args.oopts_include_path_regex){
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 }
                 sprintf(user_args.oopts_include_path_pattern, "%s", optarg);
                 user_args.oopts_include_path_regex = (regex_t *)malloc(sizeof(regex_t));
                 if (user_args.oopts_include_path_regex == NULL) {
-                    log_message(ERROR, 1, __func__, "-%c option: Could not allocate %u bytes to include_path_regex: %s\n", opt, sizeof(regex_t), optarg);
+                    log_message(ERROR, __func__, "-%c option: Could not allocate %u bytes to include_path_regex: %s", opt, sizeof(regex_t), optarg);
                     exit(EXIT_FAILURE);
                 }
                 if (regcomp(user_args.oopts_include_path_regex, optarg, REG_EXTENDED)) {
-                    log_message(ERROR, 1, __func__, "-%c option: Could not compile regex for included path: %s\n", opt, optarg);
+                    log_message(ERROR, __func__, "-%c option: Could not compile regex for included path: %s", opt, optarg);
                     exit(EXIT_FAILURE);
                 }
                 break;
             case 'e':
                 if (user_args.oopts_include_path_regex){
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used with -i option at the same time.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -i option at the same time.", opt);
                     exit(EXIT_FAILURE);
                 }
                 if (user_args.oopts_exclude_path_regex){
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 }
                 sprintf(user_args.oopts_exclude_path_pattern, "%s", optarg);
                 user_args.oopts_exclude_path_regex = (regex_t *)malloc(sizeof(regex_t));
                 if (user_args.oopts_exclude_path_regex == NULL) {
-                    log_message(ERROR, 1, __func__, "-%c option: Could not allocate %u bytes to exclude_path_regex: %s\n", opt, sizeof(regex_t), optarg);
+                    log_message(ERROR, __func__, "-%c option: Could not allocate %u bytes to exclude_path_regex: %s", opt, sizeof(regex_t), optarg);
                     exit(EXIT_FAILURE);
                 }
                 if (regcomp(user_args.oopts_exclude_path_regex, user_args.oopts_exclude_path_pattern, REG_EXTENDED)) {
-                    log_message(ERROR, 1, __func__, "-%c option: Could not compile regex for excluded path: %s\n", opt, optarg);
+                    log_message(ERROR, __func__, "-%c option: Could not compile regex for excluded path: %s", opt, optarg);
                     exit(EXIT_FAILURE);
                 }
                 break;
             case 'o':
                 if (user_args.oopts_output) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 }
                 user_args.oopts_output = optarg;
@@ -172,17 +172,17 @@ user_args_t parse_args(int argc, char* argv[]) {
             case 'I':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_exclude_pids[0] != 0) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used with -E option at the same time.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -E option at the same time.", opt);
                     exit(EXIT_FAILURE);
                 }             
                 if (user_args.oopts_include_pids[0] != 0) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 } 
                 for (int i = 0; i < MAX_PROCESS_FILTER; i++) {
                     if (token == NULL) break;
                     if (!is_valid_integer(token)) {
-                        log_message(ERROR, 1, __func__, "-%c option: '%s' is not an integer.\n", opt, token);
+                        log_message(ERROR, __func__, "-%c option: '%s' is not an integer.", opt, token);
                         exit(EXIT_FAILURE);
                     } 
                     user_args.oopts_include_pids[i] = atoi(token);
@@ -192,17 +192,17 @@ user_args_t parse_args(int argc, char* argv[]) {
             case 'E':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_include_pids[0] != 0) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used with -I option at the same time.\n", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -I option at the same time.", opt, token);
                     exit(EXIT_FAILURE);
                 } 
                 if (user_args.oopts_exclude_pids[0] != 0) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt, token);
                     exit(EXIT_FAILURE);
                 } 
                 for (int i = 0; i < MAX_PROCESS_FILTER; i++) {
                     if (token == NULL) break;
                     if (!is_valid_integer(token)) {
-                        log_message(ERROR, 1, __func__, "%c option: '%s' is not an integer.\n", opt, token);
+                        log_message(ERROR, __func__, "%c option: '%s' is not an integer.", opt, token);
                         exit(EXIT_FAILURE);
                     } 
                     user_args.oopts_exclude_pids[i] = atoi(token);
@@ -212,11 +212,11 @@ user_args_t parse_args(int argc, char* argv[]) {
             case 'N':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_exclude_process[0][0]) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used with -X option at the same time.\n", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -X option at the same time.", opt, token);
                     exit(EXIT_FAILURE);
                 } 
                 if (user_args.oopts_include_process[0][0]) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt, token);
                     exit(EXIT_FAILURE);
                 } 
                 for (int i = 0; i < MAX_PROCESS_FILTER; i++){
@@ -228,11 +228,11 @@ user_args_t parse_args(int argc, char* argv[]) {
             case 'X':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_include_process[0][0]) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used with -N option at the same time.\n", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -N option at the same time.", opt, token);
                     exit(EXIT_FAILURE);
                 } 
                 if (user_args.oopts_exclude_process[0][0]) {
-                    log_message(ERROR, 1, __func__, "-%c option: Cannot be used more than once.\n", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt, token);
                     exit(EXIT_FAILURE);
                 } 
                 for (int i = 0; i < MAX_PROCESS_FILTER; i++){
@@ -243,7 +243,7 @@ user_args_t parse_args(int argc, char* argv[]) {
                 break;
             case 'P':
                 if (!has_config_fanotify_access_perms()) {
-                    log_message(ERROR, 1, __func__, "Unable to enable permission checks as kernel does not support this feature!\n");
+                    log_message(ERROR, __func__, "Unable to enable permission checks as kernel does not support this feature!");
                     exit(EXIT_FAILURE);
                 }
                 user_args.oopts_enable_perms_check = true;
@@ -255,7 +255,7 @@ user_args_t parse_args(int argc, char* argv[]) {
     }
 
     if (optind < argc) {
-        log_message(ERROR, 1, __func__, "filemon does not take in any positional arguments! See usage.\n\n");
+        log_message(ERROR, __func__, "filemon does not take in any positional arguments! See usage.");
         usage();
         exit(EXIT_FAILURE);
     }

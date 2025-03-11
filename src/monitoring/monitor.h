@@ -90,7 +90,7 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     };
 
     if (!m_box->fanotify_info.is_config_fanotify_enabled) {
-        log_message(ERROR, 1, __func__, "Kernel does not have fanotify capabiltiies!\n");
+        log_message(ERROR, __func__, "Kernel does not have fanotify capabiltiies!");
         return;
     }
 
@@ -222,14 +222,14 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
             AT_FDCWD, 
             m_boxes[i]->fanotify_info.mount_path);
         if (ret == 0) {
-            log_message(DEBUG, 1, __func__, "Spawning thread to monitor read/write/execute events on \"%s\" mount...\n", m_boxes[i]->fanotify_info.mount_path);
+            log_message(DEBUG, __func__, "Spawning thread to monitor read/write/execute events on \"%s\" mount...", m_boxes[i]->fanotify_info.mount_path);
             if (pthread_create(&monitoring_threads[i], NULL, handle_rwe_events_thread, &args) != 0) {
-                log_message(WARNING, 1, __func__, "Unable to create thread to monitor read/write/execute events on \"%s\" mount\n", m_boxes[i]->fanotify_info.mount_path);
+                log_message(WARNING, __func__, "Unable to create thread to monitor read/write/execute events on \"%s\" mount", m_boxes[i]->fanotify_info.mount_path);
             } else {
                 num_running_threads++;
             }
         } else {
-            log_message(WARNING, 1, __func__, "Unable to fanotify_mark with read/write/execute masks on \"%s\" mount!\n", m_boxes[i]->fanotify_info.mount_path);
+            log_message(WARNING, __func__, "Unable to fanotify_mark with read/write/execute masks on \"%s\" mount!", m_boxes[i]->fanotify_info.mount_path);
         }
         
 
@@ -239,14 +239,14 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
             AT_FDCWD, 
             m_boxes[i]->fanotify_info.mount_path);
         if (ret == 0) {
-            log_message(DEBUG, 1, __func__, "Spawning thread to monitor create/delete/move events on \"%s\" mount...\n", m_boxes[i]->fanotify_info.mount_path);
+            log_message(DEBUG, __func__, "Spawning thread to monitor create/delete/move events on \"%s\" mount...", m_boxes[i]->fanotify_info.mount_path);
             if (pthread_create(&monitoring_threads[i + 1], NULL, handle_cdm_events_thread, &args) != 0) {
-                log_message(WARNING, 1, __func__, "Unable to create thread to monitor create/delete/move events on \"%s\" mount\n", m_boxes[i]->fanotify_info.mount_path);
+                log_message(WARNING, __func__, "Unable to create thread to monitor create/delete/move events on \"%s\" mount", m_boxes[i]->fanotify_info.mount_path);
             } else {
                 num_running_threads++;
             }
         } else {
-            log_message(WARNING, 1, __func__, "Unable to fanotify_mark with create/delete/move masks on \"%s\" mount!\n", m_boxes[i]->fanotify_info.mount_path);
+            log_message(WARNING, __func__, "Unable to fanotify_mark with create/delete/move masks on \"%s\" mount!", m_boxes[i]->fanotify_info.mount_path);
         }
     }
 
@@ -256,13 +256,13 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
     }
 
     if (num_running_threads > 0) {
-        log_message(INFO, 1, __func__, "There are %lu monitoring threads! Successfully started filemon!\n", num_running_threads);
+        log_message(INFO, __func__, "There are %lu monitoring threads! Successfully started filemon!", num_running_threads);
         for (size_t i = 0; i < num_running_threads; i++) {
             pthread_join(monitoring_threads[i], NULL);
         }
     }
     else {
-        log_message(ERROR, 1, __func__, "There are 0 monitoring threads! Failed to start filemon!\n");
+        log_message(ERROR, __func__, "There are 0 monitoring threads! Failed to start filemon!");
     }
 
     return;
@@ -278,7 +278,7 @@ void* handle_rwe_events_thread(void* arg) {
 
     int ret = poll(&pfd, 1, -1);
     if (ret <= 0) {
-        log_message(ERROR, 1, __func__, "Error polling fanotify FD (%d) for read/write/execute events on \"%s\" mount!\n", 
+        log_message(ERROR, __func__, "Error polling fanotify FD (%d) for read/write/execute events on \"%s\" mount!", 
             m_box->fanotify_info.read_write_execute.fan_fd,
             m_box->fanotify_info.mount_path);
         exit(EXIT_FAILURE);
@@ -316,10 +316,10 @@ void handle_rwe_events(monitor_box_t *m_box) {
             comm = get_comm_from_pid((uint32_t)metadata->pid);
             if (comm != NULL) {
                 set_comm_to_cache((uint32_t)metadata->pid, comm, &m_box->comm_cache);
-                // log_message(DEBUG, 1, __func__, "Set comm to cache: %s\n", comm);
+                // log_message(DEBUG, __func__, "Set comm to cache: %s", comm);
             } else {
                 comm = get_comm_from_cache((uint32_t)metadata->pid, &m_box->comm_cache);
-                // log_message(DEBUG, 1, __func__, "Got comm from cache: %s\n", comm);
+                // log_message(DEBUG, __func__, "Got comm from cache: %s", comm);
             }
             if (comm == NULL) 
                 comm = strdup("unknown-process");
@@ -380,7 +380,7 @@ write_fanotify_response:
             }
             
             fanotify_helper_masks_to_string(metadata->mask, masks, MAX_MASKS_LEN);
-            log_message(INFO, 1, __func__, "%s (%d): %s == [%s]\n", comm, metadata->pid, full_path, masks);
+            log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, full_path, masks);
 
 next_event:
             memset(masks, 0, sizeof(masks));
@@ -409,7 +409,7 @@ void* handle_cdm_events_thread(void* arg) {
     
     int ret = poll(&pfd, 1, -1);
     if (ret <= 0) {
-        log_message(ERROR, 1, __func__, "Error polling fanotify FD (%d) for create/delete/move events on \"%s\" mount!\n", 
+        log_message(ERROR, __func__, "Error polling fanotify FD (%d) for create/delete/move events on \"%s\" mount!", 
             m_box->fanotify_info.create_delete_move.fan_fd,
             m_box->fanotify_info.mount_path);
         exit(EXIT_FAILURE);
@@ -450,10 +450,10 @@ void handle_cdm_events(monitor_box_t* m_box) {
             comm = get_comm_from_pid((uint32_t)metadata->pid);
             if (comm != NULL) {
                 set_comm_to_cache((uint32_t)metadata->pid, comm, &m_box->comm_cache);
-                // log_message(DEBUG, 1, __func__, "Set comm to cache: %s\n", comm);
+                // log_message(DEBUG, __func__, "Set comm to cache: %s", comm);
             } else {
                 comm = get_comm_from_cache((uint32_t)metadata->pid, &m_box->comm_cache);
-                // log_message(DEBUG, 1, __func__, "Got comm from cache: %s\n", comm);
+                // log_message(DEBUG, __func__, "Got comm from cache: %s", comm);
             }
             if (comm == NULL) {
                 comm = strdup("unknown-process");
@@ -461,7 +461,7 @@ void handle_cdm_events(monitor_box_t* m_box) {
 
             mount_fd = open(m_box->fanotify_info.mount_path, O_DIRECTORY | O_RDONLY);
             if (mount_fd == -1) {
-                log_message(WARNING, 1, __func__, "Unable to open \"%s\" mount!\n", m_box->fanotify_info.mount_path);
+                log_message(WARNING, __func__, "Unable to open \"%s\" mount!", m_box->fanotify_info.mount_path);
                 sleep(5);
                 return;
             }
@@ -483,7 +483,7 @@ void handle_cdm_events(monitor_box_t* m_box) {
                     metadata = FAN_EVENT_NEXT(metadata, buflen);
                     continue;
                 } else {
-                    log_message(ERROR, 1, __func__, "Encountered error at open_by_handle_at\n");
+                    log_message(ERROR, __func__, "Encountered error at open_by_handle_at");
                     exit(EXIT_FAILURE);
                 }
             }
@@ -532,9 +532,9 @@ void handle_cdm_events(monitor_box_t* m_box) {
 
             fanotify_helper_masks_to_string(metadata->mask, masks, MAX_MASKS_LEN);
             if (file_name) {
-                log_message(INFO, 1, __func__, "%s (%d): %s/%s == [%s]\n", comm, metadata->pid, path, file_name, masks);
+                log_message(INFO, __func__, "%s (%d): %s/%s == [%s]", comm, metadata->pid, path, file_name, masks);
             } else {
-                log_message(INFO, 1, __func__, "%s (%d): %s == [%s]\n", comm, metadata->pid, path, masks);
+                log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, path, masks);
             }
 
 next_event:
@@ -556,7 +556,7 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
     if (g_logger.log_file.f) {
         printf("[+] Stopping filemon...\n");
     }
-    log_message(INFO, 1, __func__, "Stopping filemon...\n");
+    log_message(INFO, __func__, "Stopping filemon...");
 
     for (size_t i = 0; i < num_boxes; i++) {
         fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, FAN_MARK_FLUSH, 0, 0, NULL);
@@ -566,7 +566,7 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
         printf("[+] Successfully stopped filemon.\n");
         printf("[+] To view the logs: less -R \"%s\"\n", g_logger.log_file.fullpath);
     }
-    log_message(INFO, 1, __func__, "Successfully stopped filemon!\n");
+    log_message(INFO, __func__, "Successfully stopped filemon!");
     return;
 }
 
@@ -593,33 +593,7 @@ void print_box(monitor_box_t* m_box, uint32_t index) {
     char *buf_include_process = concatenate_process_names(m_box->filters.include_process, MAX_PROCESS_FILTER);
     char *buf_exclude_process = concatenate_process_names(m_box->filters.exclude_process, MAX_PROCESS_FILTER);
 
-    log_message(DEBUG, 1, __func__, "Monitor Box %u:\n \
-    {\n \
-        .enable_perms_check = %d,\n \
-        .fanotify_info = {\n \
-            .is_config_fanotify_enabled = %d,\n \
-            .is_config_fanotify_access_permissions_enabled = %d,\n \
-            .read_write_execute = {\n \
-                .fan_fd = %d,\n \
-                .flags = %u (%s),\n \
-                .masks = %u (%s)\n \
-            }, \n \
-            .create_delete_move = {\n \
-                .fan_fd = %d,\n \
-                .flags = %u (%s),\n \
-                .masks = %u (%s),\n \
-            }, \n \
-            .mount_path = \"%s\"\n \
-        },\n \
-        .filters = {\n \
-            .include_pids = {%s},\n \
-            .exclude_pids = {%s},\n \
-            .include_process = {%s},\n \
-            .exclude_process = {%s},\n \
-            .include_path_regex = \"%s\",\n \
-            .exclude_path_regex = \"%s\"\n \
-        }\n \
-    }\n",
+    log_message(DEBUG, __func__, "Monitor Box %u: { .enable_perms_check = %d, .fanotify_info = { .is_config_fanotify_enabled = %d, .is_config_fanotify_access_permissions_enabled = %d, .read_write_execute = { .fan_fd = %d, .flags = %u (%s), .masks = %u (%s) }, .create_delete_move = { .fan_fd = %d, .flags = %u (%s), .masks = %u (%s), }, .mount_path = \"%s\" }, .filters = { .include_pids = {%s}, .exclude_pids = {%s}, .include_process = {%s}, .exclude_process = {%s}, .include_path_regex = \"%s\", .exclude_path_regex = \"%s\" } }",
     index, m_box->enable_perms_check, 
     m_box->fanotify_info.is_config_fanotify_enabled, 
     m_box->fanotify_info.is_config_fanotify_access_permissions_enabled,

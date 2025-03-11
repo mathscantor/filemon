@@ -33,14 +33,25 @@ typedef struct {
 } logger_t;
 
 void logger_init(int, char*);
-void log_message(Severity, int, const char *, const char *, ...);
+void log_message(Severity, const char *, const char *, ...);
+char *get_current_datetime(void);
+char *get_log_extension(char *);
+bool is_valid_extension(char *);
 
 const char *severity_colors[] = {
-    "",                        // NIL
-    "\x1b[94m[DBG]\x1b[0m ",   // DEBUG
-    "\x1b[92m[INF]\x1b[0m ",   // INFO
-    "\x1b[93m[WRN]\x1b[0m ",   // WARNING
-    "\x1b[91m[ERR]\x1b[0m "    // ERROR
+    "",                       // NIL
+    "\x1b[94m[DBG]\x1b[0m",   // DEBUG
+    "\x1b[92m[INF]\x1b[0m",   // INFO
+    "\x1b[93m[WRN]\x1b[0m",   // WARNING
+    "\x1b[91m[ERR]\x1b[0m"    // ERROR
+};
+
+const char *severity_nocolors[] = {
+    "",        // NIL
+    "[DBG]",   // DEBUG
+    "[INF]",   // INFO
+    "[WRN]",   // WARNING
+    "[ERR]"    // ERROR
 };
 
 logger_t g_logger = {
@@ -50,7 +61,7 @@ logger_t g_logger = {
         .fullpath = {0},
         .f = NULL,
         .filetype = NULL,
-        .supported_filetypes = {"txt", "csv", "json", "jsonl"}
+        .supported_filetypes = {".txt", ".csv", ".json", ".jsonl"}
     }
 };
 
@@ -67,14 +78,28 @@ void logger_init(int verbosity_level, char *logfile) {
     if (logfile == NULL) {
         g_logger.log_file.f = NULL;
     } else {
+        g_logger.log_file.filetype = get_log_extension(logfile);
+        if (g_logger.log_file.filetype == NULL) {
+            log_message(ERROR, __func__, "No file extension detected! Valid extensions: [\".txt\", \".csv\", \".json\", \".jsonl\"]");
+            exit(EXIT_FAILURE);
+        }
+        if (!is_valid_extension(g_logger.log_file.filetype)) {
+            log_message(ERROR, __func__, "Invalid \"%s\" extension type! Valid extensions: [\".txt\", \".csv\", \".json\", \".jsonl\"]", g_logger.log_file.filetype);
+            exit(EXIT_FAILURE);
+        }
         g_logger.log_file.f = fopen(logfile, "w");
         if (g_logger.log_file.f == NULL) {
-            log_message(ERROR, 1, __func__, "Unable to fopen on \"%s\"\n", logfile);
+            log_message(ERROR, __func__, "Unable to fopen on \"%s\"", logfile);
             exit(EXIT_FAILURE);
         }
         if(realpath(logfile, g_logger.log_file.fullpath) == NULL) {
-            log_message(ERROR, 1, __func__, "Unable to resolve full path of \"%s\"\n", logfile);
+            log_message(ERROR, __func__, "Unable to resolve full path of \"%s\"", logfile);
             exit(EXIT_FAILURE);
+        }
+
+        // Write CSV headers
+        if (strcmp(g_logger.log_file.filetype, ".csv") == 0) {
+            fprintf(g_logger.log_file.f, "datetime,severity,function,message\n");
         }
     }
 
@@ -86,67 +111,158 @@ void logger_init(int verbosity_level, char *logfile) {
     }
 }
 
-void log_message(Severity sev, int show_time, const char *func, const char *format, ...) {
+void log_message(Severity sev, const char *func, const char *format, ...) {
 
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    struct tm* local_time = localtime(&tv.tv_sec);
-
-    int utc_offset = local_time->tm_gmtoff; // tm_gmtoff gives offset in seconds
-    int hours_offset = utc_offset / 3600;
-    int minutes_offset = abs((utc_offset % 3600) / 60);
+    va_list args;
 
     // If verbosity is default (1), then ignore DEBUG messages
     if (g_logger.verbosity_level == 1 && sev == DEBUG) {
         return;
     }
 
-    va_list args;
-    if (g_logger.log_file.f != NULL){
-        if (show_time) {
-            fprintf(g_logger.log_file.f, 
-                "[%02d-%02d-%04d %02d:%02d:%02d.%03d",
-                local_time->tm_mday,
-                local_time->tm_mon + 1,
-                local_time->tm_year + 1900,
-                local_time->tm_hour,
-                local_time->tm_min,
-                local_time->tm_sec,
-                (int)tv.tv_usec / 1000);
-            if (hours_offset >= 0)
-                fprintf(g_logger.log_file.f, " UTC+%02d:%02d] ", hours_offset, minutes_offset);
-            else {
-                fprintf(g_logger.log_file.f, " UTC-%02d:%02d] ", abs(hours_offset), minutes_offset);
-            }
-        }
-        fprintf(g_logger.log_file.f, "%s", severity_colors[sev]);
-        fprintf(g_logger.log_file.f, "%s:: ", func);
-        va_start(args, format);
-        vfprintf(g_logger.log_file.f, format, args);
-        fflush(g_logger.log_file.f);
-        va_end(args);
-    } else {
-        if (show_time) {
-            printf("[%02d-%02d-%04d %02d:%02d:%02d.%03d",
-                local_time->tm_mday,
-                local_time->tm_mon + 1,
-                local_time->tm_year + 1900,
-                local_time->tm_hour,
-                local_time->tm_min,
-                local_time->tm_sec,
-                (int)tv.tv_usec / 1000);
-            if (hours_offset >= 0)
-                printf(" UTC+%02d:%02d] ", hours_offset, minutes_offset);
-            else {
-                printf(" UTC-%02d:%02d] ", abs(hours_offset), minutes_offset);
-            }
-        }
-        printf("%s", severity_colors[sev]);
-        printf("%s:: ", func);
-        va_start(args, format);
-        vprintf(format, args);
-        va_end(args);
-    }
+    if (!g_logger.log_file.f) 
+        goto stdout_format;
+
+    if (strcmp(g_logger.log_file.filetype, ".txt") == 0)
+        goto txt_format;
+    else if (strcmp(g_logger.log_file.filetype, ".csv") == 0)
+        goto csv_format;
+    else if (strcmp(g_logger.log_file.filetype, ".json") == 0)
+        goto json_format;
+    else if (strcmp(g_logger.log_file.filetype, ".jsonl") == 0)
+        goto jsonl_format;
+
+
+stdout_format:
+    printf("[%s] ", get_current_datetime());
+    printf("%s ", severity_colors[sev]);
+    printf("%s:: ", func);
+
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+
+    printf("\n");
+    return;
+
+txt_format:
+    fprintf(g_logger.log_file.f, "[%s] ", get_current_datetime());
+    fprintf(g_logger.log_file.f, "%s ", severity_nocolors[sev]);
+    fprintf(g_logger.log_file.f, "%s:: ", func);
+
+    va_start(args, format);
+    vfprintf(g_logger.log_file.f, format, args);
+    va_end(args);
+
+    fprintf(g_logger.log_file.f, "\n");
+    fflush(g_logger.log_file.f);
+    return;
+
+csv_format:
+    fprintf(g_logger.log_file.f, "\"%s\",", get_current_datetime());
+    fprintf(g_logger.log_file.f, "\"%s\",", severity_nocolors[sev]);
+    fprintf(g_logger.log_file.f, "\"%s\",", func);
+
+    fprintf(g_logger.log_file.f, "\"");
+    va_start(args, format);
+    vfprintf(g_logger.log_file.f, format, args);
+    va_end(args);
+    fprintf(g_logger.log_file.f, "\"");
+
+    fprintf(g_logger.log_file.f, "\n");
+    fflush(g_logger.log_file.f);
+    return;
+
+json_format:
+    fprintf(g_logger.log_file.f, "{\n");
+    fprintf(g_logger.log_file.f, "  \"datetime\": \"%s\",\n", get_current_datetime());
+    fprintf(g_logger.log_file.f, "  \"severity\": \"%s\",\n", severity_nocolors[sev]);
+    fprintf(g_logger.log_file.f, "  \"function\": \"%s\",\n", func);
+    fprintf(g_logger.log_file.f, "  \"message\": \"");
+
+    va_start(args, format);
+    vfprintf(g_logger.log_file.f, format, args);
+    va_end(args);
+
+    fprintf(g_logger.log_file.f, "\"\n"); // Closing the message value
+    fprintf(g_logger.log_file.f, "}\n");  // Closing the JSON object
+    fflush(g_logger.log_file.f);
+    return;
+
+jsonl_format:
+    fprintf(g_logger.log_file.f, "{");
+    fprintf(g_logger.log_file.f, "\"datetime\": \"%s\",", get_current_datetime());
+    fprintf(g_logger.log_file.f, "\"severity\": \"%s\",", severity_nocolors[sev]);
+    fprintf(g_logger.log_file.f, "\"function\": \"%s\",", func);
+    fprintf(g_logger.log_file.f, "\"message\": \"");
+
+    va_start(args, format);
+    vfprintf(g_logger.log_file.f, format, args);
+    va_end(args);
+
+    fprintf(g_logger.log_file.f, "\"}\n");
+    fflush(g_logger.log_file.f);
+    return;
+
 }
 
+char *get_current_datetime(void) {
+
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    struct tm* local_time = localtime(&tv.tv_sec);
+
+    int utc_offset = local_time->tm_gmtoff;
+    int hours_offset = utc_offset / 3600;
+    int minutes_offset = abs((utc_offset % 3600) / 60);
+
+    // Eg. 11-03-2025 14:12:41.195 UTC+08:00
+    // 33 characters + 1 '\0' character
+    char *current_datetime = malloc(34);
+    if (hours_offset >= 0) {
+        snprintf(current_datetime, 34, "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC+%02d:%02d", 
+            local_time->tm_mday,
+            local_time->tm_mon + 1,
+            local_time->tm_year + 1900,
+            local_time->tm_hour,
+            local_time->tm_min,
+            local_time->tm_sec,
+            (int)tv.tv_usec / 1000,
+            hours_offset,
+            minutes_offset);
+    } else {
+        snprintf(current_datetime, 34, "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC-%02d:%02d", 
+            local_time->tm_mday,
+            local_time->tm_mon + 1,
+            local_time->tm_year + 1900,
+            local_time->tm_hour,
+            local_time->tm_min,
+            local_time->tm_sec,
+            (int)tv.tv_usec / 1000,
+            abs(hours_offset),
+            minutes_offset);
+    }
+
+    return current_datetime;
+}
+
+bool is_valid_extension(char *ext) {
+
+    size_t supported_extension_size = sizeof(g_logger.log_file.supported_filetypes) / sizeof (char *);
+
+    for (size_t i = 0; i < supported_extension_size; i++) {
+        if (strcmp(ext, g_logger.log_file.supported_filetypes[i]) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+char *get_log_extension(char *path) {
+
+    char *ext = strrchr(path, '.'); 
+    if (!ext || ext == path) return NULL;  
+    
+    return ext;
+}
 #endif

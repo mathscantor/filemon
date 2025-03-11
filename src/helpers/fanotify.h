@@ -58,7 +58,7 @@ bool has_config_fanotify(void) {
 
     // Get the kernel version
     if (uname(&uname_data) != 0) {
-        log_message(ERROR, 1, __func__, "Unable to get kernel version via uname.\n");
+        log_message(ERROR, __func__, "Unable to get kernel version via uname.");
         return false;
     }
 
@@ -68,7 +68,7 @@ bool has_config_fanotify(void) {
     // Open the file for reading
     file = fopen(filepath, "r");
     if (file == NULL) {
-        log_message(ERROR, 1, __func__, "Unable to open: \"/boot/config-%s\"\n", uname_data.release);
+        log_message(ERROR, __func__, "Unable to open: \"/boot/config-%s\"", uname_data.release);
         return false;
     }
 
@@ -97,7 +97,7 @@ bool has_config_fanotify_access_perms(void) {
 
     // Get the kernel version
     if (uname(&uname_data) != 0) {
-        log_message(ERROR, 1, __func__, "Unable to get kernel version via uname.\n");
+        log_message(ERROR, __func__, "Unable to get kernel version via uname.");
         return false;
     }
 
@@ -107,7 +107,7 @@ bool has_config_fanotify_access_perms(void) {
     // Open the file for reading
     file = fopen(filepath, "r");
     if (file == NULL) {
-        log_message(ERROR, 1, __func__, "Unable to fopen: %s\n", filepath);
+        log_message(ERROR, __func__, "Unable to fopen: %s", filepath);
         return false;
     }
 

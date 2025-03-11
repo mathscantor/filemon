@@ -104,7 +104,7 @@ char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
 void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
 
     if (strcmp(comm, comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]) == 0) {
-        // log_message(DEBUG, 1, __func__, "Cache index %d already contains \"%s\". Ignoring...\n", pid % MAX_COMM_CACHE_SIZE, comm);
+        // log_message(DEBUG, __func__, "Cache index %d already contains \"%s\". Ignoring...", pid % MAX_COMM_CACHE_SIZE, comm);
         return;
     }
         
@@ -142,12 +142,12 @@ char *get_full_path(const char *path) {
     
     char *resolved_path = malloc(PATH_MAX);
     if (resolved_path == NULL) {
-        log_message(ERROR, 1, __func__, "Unable to malloc for resolved_path\n");
+        log_message(ERROR, __func__, "Unable to malloc for resolved_path");
         return NULL;
     }
 
     if (realpath(path, resolved_path) == NULL) {
-        log_message(ERROR, 1, __func__, "Unable to resolve fullpath of: %s\n", path);
+        log_message(ERROR, __func__, "Unable to resolve fullpath of: %s", path);
         free(resolved_path);
         return NULL;
     }
