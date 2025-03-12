@@ -217,10 +217,9 @@ char *get_current_datetime(void) {
     int minutes_offset = abs((utc_offset % 3600) / 60);
 
     // Eg. 11-03-2025 14:12:41.195 UTC+08:00
-    // 33 characters + 1 '\0' character
-    char *current_datetime = malloc(34);
+    char *current_datetime = (char *)malloc(100);
     if (hours_offset >= 0) {
-        snprintf(current_datetime, 34, "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC+%02d:%02d", 
+        snprintf(current_datetime, 100, "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC+%02d:%02d", 
             local_time->tm_mday,
             local_time->tm_mon + 1,
             local_time->tm_year + 1900,
@@ -231,7 +230,7 @@ char *get_current_datetime(void) {
             hours_offset,
             minutes_offset);
     } else {
-        snprintf(current_datetime, 34, "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC-%02d:%02d", 
+        snprintf(current_datetime, 100, "%02d-%02d-%04d %02d:%02d:%02d.%03d UTC-%02d:%02d", 
             local_time->tm_mday,
             local_time->tm_mon + 1,
             local_time->tm_year + 1900,
