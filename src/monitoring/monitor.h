@@ -71,7 +71,7 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
             .create_delete_move = {
                 .fan_fd = -1,
                 .flags = 0,
-                .masks = 0,
+                .masks = 0
             },
             .mount_path = {0}
         },
@@ -600,7 +600,7 @@ void print_box(monitor_box_t* m_box, uint32_t index) {
     char *buf_include_process = concatenate_process_names(m_box->filters.include_process, MAX_PROCESS_FILTER);
     char *buf_exclude_process = concatenate_process_names(m_box->filters.exclude_process, MAX_PROCESS_FILTER);
 
-    log_message(DEBUG, __func__, "Monitor Box %u: { .enable_perms_check = %d, .fanotify_info = { .is_config_fanotify_enabled = %d, .is_config_fanotify_access_permissions_enabled = %d, .read_write_execute = { .fan_fd = %d, .flags = %u (%s), .masks = %u (%s) }, .create_delete_move = { .fan_fd = %d, .flags = %u (%s), .masks = %u (%s), }, .mount_path = \"%s\" }, .filters = { .include_pids = {%s}, .exclude_pids = {%s}, .include_process = {%s}, .exclude_process = {%s}, .include_path_regex = \"%s\", .exclude_path_regex = \"%s\" } }",
+    log_message(DEBUG, __func__, "Monitor Box %u: { enable_perms_check = %d, fanotify_info = { is_config_fanotify_enabled = %d, is_config_fanotify_access_permissions_enabled = %d, read_write_execute = { fan_fd = %d, flags = %u (%s), masks = %u (%s) }, create_delete_move = { fan_fd = %d, flags = %u (%s), masks = %u (%s) }, mount_path = \"%s\" }, filters = { include_pids = {%s}, exclude_pids = {%s}, include_process = {%s}, exclude_process = {%s}, include_path_regex = \"%s\", exclude_path_regex = \"%s\" } }",
     index, m_box->enable_perms_check, 
     m_box->fanotify_info.is_config_fanotify_enabled, 
     m_box->fanotify_info.is_config_fanotify_access_permissions_enabled,
