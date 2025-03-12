@@ -37,6 +37,7 @@ user_args_t parse_args(int argc, char *argv[]) {
 
     struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
+        {"version", no_argument, 0, 'V'},
         {"verbose", no_argument, 0, 'v'},
         {"mounts", required_argument, 0, 'm'},
         {"include-path-pattern", required_argument, 0, 'i'},
@@ -50,7 +51,7 @@ user_args_t parse_args(int argc, char *argv[]) {
         {0, 0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "hvm:i:e:o:I:E:N:X:P", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hvVm:i:e:o:I:E:N:X:P", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 usage();
@@ -58,6 +59,10 @@ user_args_t parse_args(int argc, char *argv[]) {
                 break;
             case 'v':
                 user_args.oopts_verbose = 2; 
+                break;
+            case 'V':
+                printf("filemon v%d.%d.%d\n", FILEMON_VER_MAJOR, FILEMON_VER_MINOR, FILEMON_VER_PATCH);
+                exit(EXIT_SUCCESS);
                 break;
             case 'm':
                 if (optarg[0] == '\0') {
@@ -230,13 +235,14 @@ user_args_t parse_args(int argc, char *argv[]) {
  * 
  */
 void usage(void){
-    printf("Usage: filemon DIRECTORY [-h] [-v] [-m MOUNTS] [-o OUTPUT]\n" 
+    printf("Usage: filemon DIRECTORY [-h] [-v] [-V] [-m MOUNTS] [-o OUTPUT]\n" 
     "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]\n"
     "%15s[-I INCLUDE_PIDS | -E EXCLUDE_PIDS]\n"
     "%15s[-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P]\n", "", "", "");
     printf("Options:\n");
     printf("  %-30s %s\n", "-h  | --help", "Show help");
     printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
+    printf("  %-30s %s\n", "-V  | --version", "Show the version of filemon.");
     printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor. Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
     printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
     printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
