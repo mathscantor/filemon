@@ -22,6 +22,19 @@ user_args_t user_args;
 
 void signal_handler(int);
 
+/**
+ * @brief The entry point of the filemon program.
+ * 
+ * This function initializes logging, verifies that the program is being run as root, 
+ * sets up the signal handler for SIGINT, and initializes the monitoring process 
+ * for the specified mounts. It allocates memory for the monitor boxes, 
+ * sets up each monitor box with user arguments, and starts the monitoring process.
+ * 
+ * @param argc The number of command-line arguments passed to the program.
+ * @param argv The array of command-line arguments.
+ * 
+ * @return int Returns 0 on successful execution, or exits the program if an error occurs.
+ */
 int main(int argc, char *argv[]) {
 
     user_args = parse_args(argc, argv);
@@ -61,9 +74,14 @@ int main(int argc, char *argv[]) {
 }
 
 /**
- * @brief SIGINT handler to call other functions.
+ * @brief Handles incoming signals, including SIGINT.
  * 
- * @param signum 
+ * This function is used to handle various signals received by the program. Currently, it handles 
+ * the SIGINT signal, logging the receipt of the signal and gracefully stopping the monitoring process 
+ * before exiting the program. For any other signals, a message is logged indicating an unknown signal.
+ * 
+ * @param sig The signal number received.
+ *
  */
 void signal_handler(int sig) {
 
@@ -76,6 +94,6 @@ void signal_handler(int sig) {
         default:
             log_message(DEBUG, __func__, "Unknown Signal %d received!", sig);
     }
-
+    return;
 }
 

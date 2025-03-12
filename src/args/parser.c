@@ -1,6 +1,18 @@
 #include "parser.h"
 
-user_args_t parse_args(int argc, char* argv[]) {
+/**
+ * @brief Parses command-line arguments and returns a structured representation.
+ * 
+ * This function processes the command-line arguments passed to the program,
+ * extracting relevant options and flags to populate a `user_args_t` structure.
+ * It validates input parameters and ensures proper usage.
+ * 
+ * @param argc The number of command-line arguments.
+ * @param argv An array of argument strings.
+ * @return user_args_t A structure containing parsed argument values.
+ *                     If an error occurs, appropriate error handling should be performed.
+ */
+user_args_t parse_args(int argc, char *argv[]) {
 
     int opt;
     int option_index = 0;
@@ -70,8 +82,8 @@ user_args_t parse_args(int argc, char* argv[]) {
                     snprintf(user_args.oopts_mounts[i], PATH_MAX, "%s", token);
                     user_args.oopts_num_mounts++;
                     token = strtok(NULL, " ");
-                    
                 }
+                free_mount_points(all_mounts, total_num_mounts);
                 break;
             case 'i':
                 if (user_args.oopts_exclude_path_regex){
@@ -214,7 +226,7 @@ user_args_t parse_args(int argc, char* argv[]) {
 }
 
 /**
- * @brief Prints the usage of the program
+ * @brief Prints the usage of filemon.
  * 
  */
 void usage(void){

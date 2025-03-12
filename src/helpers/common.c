@@ -1,10 +1,18 @@
 #include "common.h"
 
 /**
- * @brief Get the path from fd object
+ * @brief Retrieves the absolute file path associated with a file descriptor.
  * 
- * @param fd The fanotify fd.
- * @return char* The file path or directory path.
+ * This function constructs the `/proc/self/fd/<fd>` symlink and resolves it
+ * using `readlink()` to obtain the actual file path.
+ * 
+ * @param fd File descriptor whose path is to be retrieved.
+ * @return char* Pointer to a dynamically allocated string containing the file path,
+ *         or NULL if an error occurs. The caller is responsible for freeing the returned string.
+ * 
+ * @note The function allocates memory for the file path, which must be freed
+ *       by the caller to avoid memory leaks.
+ * @warning Returns NULL if `fd` is invalid or `readlink()` fails.
  */
 char *get_path_from_fd(int fd) {
     ssize_t len;
@@ -23,10 +31,20 @@ char *get_path_from_fd(int fd) {
 }
 
 /**
- * @brief Get the comm from pid object
+ * @brief Retrieves the command name (comm) of a process given its PID.
  * 
- * @param pid The PID of the process that triggered the fan event.
- * @return char* The process name.
+ * This function reads the `/proc/<pid>/comm` file to obtain the command name
+ * of a running process. If the process is short-lived and exits before reading,
+ * or if an error occurs, the function returns NULL.
+ * 
+ * @param pid The process ID for which to retrieve the command name.
+ * @return char* Pointer to a dynamically allocated string containing the command name,
+ *         or NULL if an error occurs. The caller is responsible for freeing the returned string.
+ * 
+ * @note The function allocates memory for the command name, which must be freed
+ *       by the caller to avoid memory leaks.
+ * @warning Returns NULL if the process does not exist, if memory allocation fails,
+ *          or if the retrieved name contains non-printable ASCII characters.
  */
 char *get_comm_from_pid(uint32_t pid){
 
@@ -72,6 +90,22 @@ char *get_comm_from_pid(uint32_t pid){
     return comm;
 }
 
+/**
+ * @brief Retrieves the cached command name (comm) of a process given its PID.
+ * 
+ * This function checks a pre-populated cache (`comm_cache`) to retrieve 
+ * the command name of a process. If the cache does not contain a valid entry 
+ * for the given PID, the function returns NULL.
+ * 
+ * @param pid The process ID for which to retrieve the command name.
+ * @param comm_cache Pointer to the command name cache structure.
+ * @return char* Pointer to a dynamically allocated string containing the command name,
+ *         or NULL if no cached entry exists. The caller is responsible for freeing 
+ *         the returned string.
+ * 
+ * @note This function does not fetch data from `/proc`; it only looks up cached values.
+ * @warning Returns NULL if no valid cached entry exists.
+ */
 char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
    
     if (comm_cache->comms[pid % MAX_COMM_CACHE_SIZE][0] == '\0')
@@ -80,7 +114,21 @@ char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
     return strdup(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]);
 }
 
-
+/**
+ * @brief Stores the command name (comm) of a process in the cache.
+ * 
+ * This function caches the command name of a process using its PID as an index.
+ * If the command name is already present in the cache at the computed index, 
+ * the function does nothing. Otherwise, it updates the cache with the new command name.
+ * 
+ * @param pid The process ID associated with the command name.
+ * @param comm The command name to store in the cache.
+ * @param comm_cache Pointer to the command name cache structure.
+ * 
+ * @note The cache index is determined using `pid % MAX_COMM_CACHE_SIZE`, meaning 
+ *       multiple processes may overwrite each other's cached values.
+ * @warning The function does not allocate new memory; it overwrites existing cached values.
+ */
 void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
 
     if (strcmp(comm, comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]) == 0) {
@@ -93,6 +141,18 @@ void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
     return;
 }
 
+/**
+ * @brief Checks if a character is a printable ASCII character.
+ * 
+ * This function determines whether a given character falls within the 
+ * printable ASCII range, excluding the space character (' ').
+ * 
+ * @param c The character to check.
+ * @return true if the character is a printable ASCII character (excluding space), 
+ *         false otherwise.
+ * 
+ * @note Printable ASCII characters range from 33 ('!') to 126 ('~').
+ */
 bool is_printable_ascii(char c) {
     // Skip ' ' character (32)
     if (c >= 33 && c <= 126)
@@ -100,6 +160,17 @@ bool is_printable_ascii(char c) {
     return false;
 }
 
+/**
+ * @brief Checks if a given file or directory path exists.
+ * 
+ * This function uses `stat` to determine whether the specified path exists 
+ * in the filesystem.
+ * 
+ * @param path The path to check.
+ * @return true if the path exists, false otherwise.
+ * 
+ * @note This function does not differentiate between files and directories.
+ */
 bool path_exists(const char* path) {
     struct stat buffer;
     if (stat(path, &buffer) == 0) 
@@ -107,6 +178,17 @@ bool path_exists(const char* path) {
     return false;
 }
 
+/**
+ * @brief Checks if the given path is a directory.
+ * 
+ * This function uses `stat` to determine whether the specified path 
+ * exists and is a directory.
+ * 
+ * @param path The path to check.
+ * @return true if the path is a directory, false otherwise.
+ * 
+ * @note The function returns false if the path does not exist or is not a directory.
+ */
 bool is_directory(const char* path) {
     struct stat buffer;
     if (stat(path, &buffer) == 0 && S_ISDIR(buffer.st_mode)) {
@@ -115,6 +197,19 @@ bool is_directory(const char* path) {
     return false;
 }
 
+/**
+ * @brief Performs a regex search on a given string.
+ * 
+ * This function executes a compiled regular expression against the 
+ * provided `haystack` string to check for a match.
+ * 
+ * @param expr A pointer to a compiled `regex_t` structure.
+ * @param haystack The string to search within.
+ * @return true if a match is found, false otherwise.
+ * 
+ * @note The `regex_t` structure should be properly compiled using `regcomp`
+ *       before passing it to this function.
+ */
 bool regex_search(regex_t *expr, const char* haystack) {
 
     int ret;
@@ -125,6 +220,19 @@ bool regex_search(regex_t *expr, const char* haystack) {
     return false;
 }
 
+/**
+ * @brief Resolves the full, absolute path of a given path.
+ * 
+ * This function uses the `realpath` function to resolve the provided 
+ * `path` to its absolute path, taking into account symbolic links, 
+ * relative paths, and current working directory.
+ * 
+ * @param path The input path to resolve.
+ * @return A pointer to the resolved full path, or NULL if an error occurs.
+ * 
+ * @note The returned resolved path should be freed using `free()` when no longer needed.
+ * @note If memory allocation or resolution fails, NULL is returned, and an error is logged.
+ */
 char *get_full_path(const char *path) {
     
     char *resolved_path = malloc(PATH_MAX);
@@ -142,27 +250,38 @@ char *get_full_path(const char *path) {
     return resolved_path;
 }
 
+/**
+ * @brief Checks if the given string represents a valid integer.
+ * 
+ * This function attempts to convert the input string to a long integer using
+ * `strtol`. It ensures the string is a valid integer representation by checking
+ * for errors such as out-of-range values, invalid characters, or empty strings.
+ * 
+ * @param str The string to check.
+ * @return `true` if the string is a valid integer, `false` otherwise.
+ * 
+ * @note The function uses `strtol` to convert the string and checks for errors
+ * like out-of-range values (`LONG_MAX`, `LONG_MIN`) and invalid characters.
+ * It also ensures the string doesn't contain extraneous non-numeric characters.
+ */
 bool is_valid_integer(const char *str) {
     char *endptr;
-    errno = 0;  // To distinguish success/failure after call
+    errno = 0;
 
-    // Convert string to long
     long val = strtol(str, &endptr, 10);
 
-    // Check for various possible errors
     if (errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) {
-        return false;  // Out of range
+        return false;
     }
 
     if (errno != 0 && val == 0) {
-        return false;  // General error
+        return false;
     }
 
     if (endptr == str) {
-        return false;  // No digits were found
+        return false;
     }
 
-    // If there are extra characters after the number, it's not valid
     if (*endptr != '\0') {
         return false;
     }
@@ -170,6 +289,21 @@ bool is_valid_integer(const char *str) {
     return true;
 }
 
+/**
+ * @brief Converts an array of uint32_t integers to a comma-separated string.
+ * 
+ * This function takes an array of uint32_t integers and converts it into a string
+ * where each element is separated by a comma and a space. The conversion stops when
+ * a zero value is encountered in the array. The resulting string is dynamically allocated.
+ * 
+ * @param arr The array of uint32_t integers to convert.
+ * @param arr_len The length of the array.
+ * @return A dynamically allocated string containing the comma-separated values of the array, 
+ *         or an empty string if the array is NULL, empty, or contains only zeros.
+ * 
+ * @note The function handles cases where the array contains zeros, and the conversion 
+ *       stops when a zero is encountered.
+ */
 char *uint32_array_to_string(const uint32_t *arr, size_t arr_len) {
     char *result = NULL;
     char tmp[13] = {0};
@@ -198,6 +332,17 @@ char *uint32_array_to_string(const uint32_t *arr, size_t arr_len) {
     return result;
 }
 
+/**
+ * @brief Checks if a value exists in an array of uint32_t integers.
+ * 
+ * This function searches for a specified `needle` in the provided `haystack` array of 
+ * uint32_t values. It returns `true` if the value is found, and `false` otherwise.
+ * 
+ * @param haystack The array of uint32_t integers to search through.
+ * @param size The number of elements in the array.
+ * @param needle The value to search for in the array.
+ * @return `true` if the `needle` is found in the array, otherwise `false`.
+ */
 bool is_in_uint32_array(uint32_t *haystack, size_t size, uint32_t needle) {
     for (size_t i = 0; i < size; i++) {
         if (needle == haystack[i]) {
@@ -207,6 +352,20 @@ bool is_in_uint32_array(uint32_t *haystack, size_t size, uint32_t needle) {
     return false;
 }
 
+/**
+ * @brief Concatenates an array of process names into a single string.
+ * 
+ * This function concatenates a given array of process names into a single string, 
+ * with each name enclosed in double quotes and separated by commas. It stops 
+ * concatenating when it encounters an empty string in the array or reaches the 
+ * specified length of the array.
+ * 
+ * @param arr The array of process names (strings).
+ * @param arr_len The number of elements in the array.
+ * @return A dynamically allocated string containing the concatenated process names,
+ *         or NULL if an error occurs or the input array is empty.
+ *         The returned string needs to be freed by the caller.
+ */
 char *concatenate_process_names(char arr[][MAX_PROCESS_NAME_LEN], size_t arr_len) {
     
     char *result = NULL;
@@ -233,6 +392,18 @@ char *concatenate_process_names(char arr[][MAX_PROCESS_NAME_LEN], size_t arr_len
     return result;
 }
 
+/**
+ * @brief Checks if a given process name exists in an array of process names.
+ * 
+ * This function searches through an array of process names and checks if any of them 
+ * match the given needle (process name). It compares the start of each name in the 
+ * array with the provided needle.
+ * 
+ * @param haystack The array of process names (strings).
+ * @param size The number of elements in the array.
+ * @param needle The process name to search for.
+ * @return `true` if the needle is found in the array, `false` otherwise.
+ */
 bool is_in_process_names(char haystack[][MAX_PROCESS_NAME_LEN], size_t size, char *needle) {
     for (size_t i = 0; i < size; i++) {
         if (strncmp(haystack[i], needle, strlen(needle)) == 0) {
@@ -242,6 +413,19 @@ bool is_in_process_names(char haystack[][MAX_PROCESS_NAME_LEN], size_t size, cha
     return false;
 }
 
+/**
+ * @brief Checks if the current kernel version is greater than or equal to a specified version.
+ * 
+ * This function retrieves the current kernel version using `uname` and compares it 
+ * to the provided major, minor, and patch version. It returns `true` if the current 
+ * kernel version is greater than or equal to the specified version, and `false` otherwise.
+ * 
+ * @param major_version The major version of the kernel to compare against.
+ * @param minor_version The minor version of the kernel to compare against.
+ * @param patch_version The patch version of the kernel to compare against.
+ * @return `true` if the current kernel version is greater than or equal to the specified version, 
+ *         `false` otherwise.
+ */
 bool is_gte_kernel_version(int major_version, int minor_version, int patch_version) {
     struct utsname buffer;
     

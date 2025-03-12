@@ -29,10 +29,23 @@ logger_t g_logger = {
 
 
 /**
- * @brief 
+ * @brief Initializes the logger with the specified verbosity level and log file.
  * 
- * @param verbosity_level Determines if debug messages will be logged.
- * @param logfile The file path to the log file.
+ * This function initializes the global logger structure based on the provided verbosity level and 
+ * optionally opens a log file. If a log file is provided, it validates the file extension and 
+ * prepares it for logging. If the verbosity level is out of range, the program will exit with an error.
+ * The log file can be a text file (.txt), CSV (.csv), JSON (.json), or JSONL (.jsonl). 
+ * In case of a CSV file, the function writes the header row in the format: 
+ * `datetime,severity,function,message`.
+ * 
+ * @param verbosity_level The verbosity level to be used by the logger. It determines the level of detail for the logs.
+ *                        The valid range is defined by `g_logger.verbosity_range`.
+ * @param logfile The path to the log file. If `NULL`, logging will not be directed to a file.
+ *                If specified, the file extension must be one of the valid types: [".txt", ".csv", ".json", ".jsonl"].
+ * 
+ * @note If the log file extension is not valid or cannot be opened, the program will exit with an error.
+ * @note If `verbosity_level` is outside the valid range, the program will exit with an error.
+ * 
  */
 void logger_init(int verbosity_level, char *logfile) {
 
@@ -74,6 +87,20 @@ void logger_init(int verbosity_level, char *logfile) {
     }
 }
 
+/**
+ * @brief Logs a message with a specific severity to a log file or stdout.
+ * 
+ * This function logs a message with the specified severity level and additional
+ * information to a file or stdout, depending on the logging configuration.
+ * It supports multiple log file formats, including plain text, CSV, JSON, and JSONL.
+ * The message is printed with the current datetime, severity level, function name, 
+ * and the message content.
+ * 
+ * @param sev The severity level of the log (DEBUG, INFO, WARNING, ERROR).
+ * @param func The name of the function where the log is being generated.
+ * @param format The format string for the log message, followed by any arguments.
+ * @param ... The arguments to be formatted and included in the log message.
+ */
 void log_message(Severity sev, const char *func, const char *format, ...) {
 
     va_list args;
@@ -179,6 +206,15 @@ jsonl_format:
 
 }
 
+/**
+ * @brief Get the current datetime as a formatted string.
+ * 
+ * This function retrieves the current datetime in the format 
+ * "DD-MM-YYYY HH:MM:SS.mmm UTC±hh:mm", where the date and time are based on 
+ * the local system time, and the UTC offset is included.
+ * 
+ * @return A string representing the current datetime with the UTC offset.
+ */
 char *get_current_datetime(void) {
 
     struct timeval tv;
@@ -217,6 +253,16 @@ char *get_current_datetime(void) {
     return current_datetime;
 }
 
+/**
+ * @brief Checks if a file extension is valid.
+ * 
+ * This function checks if the given file extension is supported by the logger.
+ * It compares the provided extension with a list of supported extensions.
+ * 
+ * @param ext The file extension to be validated.
+ * 
+ * @return `true` if the extension is valid, `false` otherwise.
+ */
 bool is_valid_extension(char *ext) {
 
     size_t supported_extension_size = sizeof(g_logger.log_file.supported_filetypes) / sizeof (char *);
@@ -229,6 +275,16 @@ bool is_valid_extension(char *ext) {
     return false;
 }
 
+/**
+ * @brief Extracts the file extension from a file path.
+ * 
+ * This function extracts the file extension from the given file path.
+ * If no extension is found, it returns `NULL`.
+ * 
+ * @param path The file path from which to extract the extension.
+ * 
+ * @return The file extension, or `NULL` if no extension is found.
+ */
 char *get_log_extension(char *path) {
 
     char *ext = strrchr(path, '.'); 

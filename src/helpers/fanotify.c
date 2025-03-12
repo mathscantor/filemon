@@ -1,9 +1,15 @@
 #include "fanotify.h"
 
 /**
- * @brief Checks if CONFIG_FANOTIFY in /boot/config-$(uname -r) is enabled.
+ * @brief Checks if the kernel is configured with FANOTIFY support.
  * 
- * @return true if CONFIG_FANOTIFY=y. Otherwise, returns false.
+ * This function attempts to check if the kernel has FANOTIFY support enabled by reading 
+ * the kernel configuration file (`/boot/config-<kernel_version>`) and searching for 
+ * the `CONFIG_FANOTIFY=y` string. It returns `true` if FANOTIFY support is enabled, 
+ * and `false` otherwise. The kernel version is obtained using `uname`.
+ * 
+ * @return true if the kernel has FANOTIFY support enabled.
+ * @return false if the kernel does not have FANOTIFY support enabled or an error occurs.
  */
 bool has_config_fanotify(void) {
     struct utsname uname_data;
@@ -40,9 +46,15 @@ bool has_config_fanotify(void) {
 }
 
 /**
- * @brief Checks if CONFIG_FANOTIFY_ACCESS_PERMISSIONS in /boot/config-$(uname -r) is enabled.
+ * @brief Checks if the kernel is configured with FANOTIFY access permissions support.
  * 
- * @return  true if CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y. Otherwise, returns false.
+ * This function checks if the kernel is configured with access permissions for FANOTIFY events by 
+ * reading the kernel configuration file (`/boot/config-<kernel_version>`) and searching for 
+ * the `CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y` string. It returns `true` if the feature is enabled, 
+ * and `false` otherwise. The kernel version is determined using `uname`.
+ * 
+ * @return true if the kernel has FANOTIFY access permissions support enabled.
+ * @return false if the kernel does not have FANOTIFY access permissions support enabled or an error occurs.
  */
 bool has_config_fanotify_access_perms(void) {
     struct utsname uname_data;
@@ -79,25 +91,24 @@ bool has_config_fanotify_access_perms(void) {
 }
 
 /**
- * @brief A fanotify_mark() wrapper to account for both newer and older kernel versions.
+ * @brief Determines the appropriate fanotify flags for marking a mount point.
+ * 
+ * This function determines the appropriate flags for marking a filesystem or mount point 
+ * for fanotify events based on the kernel's support for the FANOTIFY_MARK_FILESYSTEM flag.
+ * It tries to use `FANOTIFY_MARK_FILESYSTEM` for newer kernels (version > 4.20), 
+ * and falls back to `FAN_MARK_MOUNT` for older kernels or if marking fails with `FANOTIFY_MARK_FILESYSTEM`.
+ * The function tries to mark the mount point at the provided `mount_path` and returns the appropriate flags.
  * 
  * @param fan_fd The fanotify file descriptor.
- * @param masks The fanotify event masks.
- * @param mount_path The full path to the mount point.
- * @return 0 on failure. Otherwise, returns the actual flags used.
+ * @param masks The event masks to apply (such as read/write/execute).
+ * @param mount_path The path to the mount point to mark.
+ * @return uint32_t The flags used for marking the filesystem or mount point, or 0 if marking failed.
  */
 uint32_t fanotify_helper_determine_flags(int fan_fd, uint64_t masks, char *mount_path) {
 
     uint32_t flags;
 
     #ifdef FAN_MARK_FILESYSTEM
-    /**
-     * FANOTIFY_MARK_FILESYSTEM is defined on newer kernels ( > 4.20 ).
-     * If filemon was built statically with FANOTIFY_MARK_FILESYSTEM on newer kernel
-     * and runs on an older kernel, it will fail to add a mark. Therefore we need to do a check by
-     * using FANOTIFY_MARK_FILESYSTEM with read/write/execute masks on the current directory, 
-     * which will automatically resolve its mount point. If this fails, fall back to FAN_MARK_MOUNT.
-     */
     flags = FAN_MARK_ADD | FAN_MARK_FILESYSTEM;
     if (fanotify_mark(fan_fd, flags, masks, AT_FDCWD, mount_path) == 0) {
         fanotify_mark(fan_fd, FAN_MARK_FLUSH | FAN_MARK_FILESYSTEM, 0, 0, NULL);
@@ -115,11 +126,19 @@ uint32_t fanotify_helper_determine_flags(int fan_fd, uint64_t masks, char *mount
 }
 
 /**
- * @brief Converts the fanotify flags to a string for readability.
+ * @brief Converts the fanotify flags to a human-readable string.
  * 
- * @param flags The fanotify flags.
- * @param buf The buffer to store the fanotify flags.
- * @param buf_len The size of the buffer.
+ * This function takes the provided `flags` and converts them into a human-readable string 
+ * format for easier inspection. The flags are checked for various FAN_MARK_* options, 
+ * and the corresponding flag names are appended to the provided buffer `buf`. 
+ * The resulting string is truncated to fit within the specified buffer size `buf_len`.
+ * 
+ * Note: The function uses the preprocessor checks to ensure that only defined flags 
+ * are included in the resulting string.
+ * 
+ * @param flags The fanotify flags (bitwise OR of FAN_MARK_* values).
+ * @param buf The buffer to store the resulting string of flag names.
+ * @param buf_len The size of the buffer to ensure no buffer overflow occurs.
  */
 void fanotify_helper_flags_to_string(uint32_t flags, char *buf, size_t buf_len) {
 
@@ -177,11 +196,16 @@ void fanotify_helper_flags_to_string(uint32_t flags, char *buf, size_t buf_len) 
 
 
 /**
- * @brief Converts the fanotify masks to a string for readability.
+ * @brief Converts the fanotify event masks to a human-readable string.
  * 
- * @param masks The fanotify event masks.
- * @param buf The buffer to store the fanotify masks.
- * @param buf_len The size of the buffer.
+ * This function takes the provided `masks` (bitwise OR of FAN_* event types) and converts them
+ * into a string that represents each individual event mask. The resulting string is stored in 
+ * the `buf` buffer, ensuring no overflow occurs based on the specified `buf_len`. The function 
+ * checks for defined FAN_* event types and appends the corresponding event name to the buffer.
+ * 
+ * @param masks The fanotify event masks (bitwise OR of FAN_* event types).
+ * @param buf The buffer to store the resulting string of event names.
+ * @param buf_len The size of the buffer to ensure no buffer overflow occurs.
  */
 void fanotify_helper_masks_to_string(uint64_t masks, char *buf, size_t buf_len) {
 

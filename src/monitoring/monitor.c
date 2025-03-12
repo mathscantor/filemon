@@ -3,6 +3,18 @@
 bool g_monitor_force_stop = false;
 pthread_mutex_t g_log_mutex;
 
+/**
+ * @brief Initializes the monitor box with the provided arguments.
+ * 
+ * This function sets up a monitor box (`monitor_box_t`) to monitor a specific mount 
+ * point using `fanotify` and applies various filters such as process IDs and path patterns. 
+ * The function also determines the appropriate event masks based on the kernel version 
+ * and configuration options.
+ * 
+ * @param m_box A pointer to the monitor box (`monitor_box_t`) to be initialized.
+ * @param user_args A pointer to the user arguments (`user_args_t`) that specify configuration options.
+ * @param mount_path The mount point path to monitor.
+ */
 void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_path) {
 
     *m_box = (monitor_box_t) {
@@ -166,9 +178,15 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
 }
 
 /**
- * @brief Begin monitoring the parent directory specified by the user.
+ * @brief Starts monitoring file events using `fanotify` for the specified monitor boxes.
  * 
- * @param m_box The monitor box.
+ * This function initializes monitoring for multiple mounts by spawning threads to 
+ * handle `read/write/execute` (RWE) and `create/delete/move` (CDM) events. It 
+ * configures the `fanotify` event masks for each mount, and starts separate threads 
+ * to monitor the events on each mount path. It also handles the logging of the process.
+ * 
+ * @param m_boxes A pointer to an array of monitor box pointers (`monitor_box_t`) to be monitored.
+ * @param num_boxes The number of monitor boxes to be monitored.
  */
 void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
 
@@ -234,7 +252,19 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
     return;
 }
 
-void* handle_rwe_events_thread(void* arg) {
+/**
+ * @brief Handles read, write, and execute events in a separate thread for a given monitor box.
+ * 
+ * This function is intended to be run in a thread that continuously monitors read, write, 
+ * and execute events on a specific mount path using `fanotify`. It waits for events on 
+ * the specified `fanotify` file descriptor and processes them using the `handle_rwe_events` function.
+ * If the polling operation fails or encounters an error, it logs the error and terminates the program.
+ * 
+ * @param arg A pointer to a `thread_arg_t` structure that contains the monitor box to monitor.
+ * 
+ * @return NULL This function does not return any value, as it runs in an infinite loop to handle events.
+ */
+void *handle_rwe_events_thread(void* arg) {
 
     monitor_box_t* m_box = ((thread_arg_t*)arg)->m_box;
     struct pollfd pfd;
@@ -258,9 +288,17 @@ void* handle_rwe_events_thread(void* arg) {
 }
 
 /**
- * @brief Fanotify event handler for read, write and execute events.
+ * @brief Processes read, write, and execute events from fanotify and applies filters.
  * 
- * @param m_box The monitor box.
+ * This function reads events from the fanotify file descriptor associated with the 
+ * monitor box, processes each event, and applies the specified filters. If the event 
+ * matches the filters, it logs the event and applies permissions checks if configured. 
+ * It also caches the process names for further use to avoid redundant lookups.
+ * If fanotify permissions are enabled and the event requires a response, it sends an 
+ * approval response back to the kernel to allow the action.
+ * 
+ * @param m_box A pointer to the monitor box (`monitor_box_t`) that contains fanotify information 
+ *              and filters to apply to the events.
  */
 void handle_rwe_events(monitor_box_t *m_box) {
 
@@ -365,12 +403,19 @@ next_event:
 #ifdef FAN_REPORT_DFID_NAME
 
 /**
- * @brief Thread function to run handle_events_create_delete_move()
+ * @brief Handles create, delete, and move events from fanotify in a separate thread.
  * 
- * @param arg Arguments of handle_events_create_delete_move().
- * @return void* 
+ * This function polls the fanotify file descriptor associated with the create, delete, and move 
+ * events of the given monitor box. When events are available, it passes the monitor box to 
+ * the `handle_cdm_events` function for processing. It continuously listens for events until the 
+ * program is terminated or an error occurs while polling.
+ * 
+ * @param arg A pointer to a `thread_arg_t` structure that contains the monitor box (`monitor_box_t`) 
+ *            for which events will be handled.
+ * 
+ * @return NULL
  */
-void* handle_cdm_events_thread(void* arg) {
+void *handle_cdm_events_thread(void* arg) {
     monitor_box_t* m_box = ((thread_arg_t*)arg)->m_box;
     struct pollfd pfd;
 
@@ -393,9 +438,17 @@ void* handle_cdm_events_thread(void* arg) {
 }
 
 /**
- * @brief Fanotify event handler for create, delete and move events.
+ * @brief Handles create, delete, and move events from fanotify.
  * 
- * @param m_box The monitor box.
+ * This function processes events related to file creation, deletion, and movement that are 
+ * received from the fanotify system. It reads events from the fanotify file descriptor, 
+ * processes each event, and applies various filters to decide whether the event should be logged. 
+ * If necessary, it also retrieves the full path of the file affected by the event and logs relevant 
+ * information about the event, including the process that triggered it.
+ * 
+ * @param m_box A pointer to a `monitor_box_t` structure representing the mount and fanotify 
+ *              configuration for the monitored events.
+ *
  */
 void handle_cdm_events(monitor_box_t* m_box) {
 
@@ -520,7 +573,17 @@ next_event:
 }
 #endif
 
-
+/**
+ * @brief Stops the file monitoring process and cleans up resources.
+ * 
+ * This function stops the file monitoring process by destroying mutexes, flushing fanotify marks, 
+ * and freeing the allocated memory for each monitor box. It also logs the stop event and provides 
+ * feedback if the logger file is active.
+ * 
+ * @param m_boxes A pointer to an array of monitor box pointers representing the monitored file systems.
+ * @param num_boxes The number of monitor boxes to stop monitoring.
+ * 
+ */
 void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
 
     if (g_logger.log_file.f) {
@@ -542,9 +605,15 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
 }
 
 /**
- * @brief Prints the contents of the monitor box. Just for debugging purposes.
+ * @brief Prints the details of a monitor box.
  * 
- * @param m_box The monitor box.
+ * This function prints the current configuration and settings of a monitor box. It includes the fanotify
+ * flags, masks, and various filter settings related to process IDs, process names, and path patterns. The 
+ * function logs these details for the specified monitor box at the provided index.
+ * 
+ * @param m_box A pointer to the monitor box whose details are to be printed.
+ * @param index The index of the monitor box in the list of monitor boxes.
+ * 
  */
 void print_box(monitor_box_t* m_box, uint32_t index) {
 
