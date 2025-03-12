@@ -51,8 +51,8 @@ bool is_in_process_names(char [][MAX_PROCESS_NAME_LEN], size_t, char *);
  */
 char *get_path_from_fd(int fd) {
     ssize_t len;
-    char* filepath = (char*)malloc(PATH_MAX);
-    char* fd_path = (char*)malloc(PATH_MAX);
+    char *filepath = (char *)malloc(PATH_MAX);
+    char *fd_path = (char *)malloc(PATH_MAX);
     if (fd <= 0) {
         return NULL;
     }
@@ -61,6 +61,7 @@ char *get_path_from_fd(int fd) {
         return NULL;
     }
     filepath[len] = '\0';
+    SAFE_FREE(fd_path);
     return filepath;
 }
 
@@ -89,7 +90,7 @@ char *get_comm_from_pid(uint32_t pid){
     if (comm[0] == '\0' || comm[0] == ' ') {
         return NULL;
     }
-
+    SAFE_FREE(comm_path);
     return comm;
 }
 
@@ -98,7 +99,7 @@ char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
     if (comm_cache->comms[pid % MAX_COMM_CACHE_SIZE][0] == '\0')
         return NULL;
 
-    return comm_cache->comms[pid % MAX_COMM_CACHE_SIZE];
+    return strdup(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]);
 }
 
 void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {

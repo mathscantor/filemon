@@ -6,8 +6,6 @@
 #include <time.h>
 #include <sys/time.h>
 
-#include "../helpers/common.h"
-
 #define GREEN_TICK "\x1b[92m\u2714\x1b[0m"
 #define RED_CROSS "\x1b[91m\u2718\x1b[0m"
 
@@ -114,7 +112,7 @@ void logger_init(int verbosity_level, char *logfile) {
 void log_message(Severity sev, const char *func, const char *format, ...) {
 
     va_list args;
-
+    char *current_datetime = get_current_datetime();
     // If verbosity is default (1), then ignore DEBUG messages
     if (g_logger.verbosity_level == 1 && sev == DEBUG) {
         return;
@@ -134,21 +132,23 @@ void log_message(Severity sev, const char *func, const char *format, ...) {
 
 
 stdout_format:
-    printf("[%s] ", get_current_datetime());
+    printf("[%s] ", current_datetime);
     printf("%s ", severity_colors[sev]);
-    printf("%s:: ", func);
+    printf("%s - ", func);
 
     va_start(args, format);
     vprintf(format, args);
     va_end(args);
 
     printf("\n");
+    free(current_datetime);
+    current_datetime = NULL;
     return;
 
 txt_format:
-    fprintf(g_logger.log_file.f, "[%s] ", get_current_datetime());
+    fprintf(g_logger.log_file.f, "[%s] ", current_datetime);
     fprintf(g_logger.log_file.f, "%s ", severity_nocolors[sev]);
-    fprintf(g_logger.log_file.f, "%s:: ", func);
+    fprintf(g_logger.log_file.f, "%s - ", func);
 
     va_start(args, format);
     vfprintf(g_logger.log_file.f, format, args);
@@ -156,10 +156,12 @@ txt_format:
 
     fprintf(g_logger.log_file.f, "\n");
     fflush(g_logger.log_file.f);
+    free(current_datetime);
+    current_datetime = NULL;
     return;
 
 csv_format:
-    fprintf(g_logger.log_file.f, "\"%s\",", get_current_datetime());
+    fprintf(g_logger.log_file.f, "\"%s\",", current_datetime);
     fprintf(g_logger.log_file.f, "\"%s\",", severity_nocolors[sev]);
     fprintf(g_logger.log_file.f, "\"%s\",", func);
 
@@ -171,11 +173,13 @@ csv_format:
 
     fprintf(g_logger.log_file.f, "\n");
     fflush(g_logger.log_file.f);
+    free(current_datetime);
+    current_datetime = NULL;
     return;
 
 json_format:
     fprintf(g_logger.log_file.f, "{\n");
-    fprintf(g_logger.log_file.f, "  \"datetime\": \"%s\",\n", get_current_datetime());
+    fprintf(g_logger.log_file.f, "  \"datetime\": \"%s\",\n", current_datetime);
     fprintf(g_logger.log_file.f, "  \"severity\": \"%s\",\n", severity_nocolors[sev]);
     fprintf(g_logger.log_file.f, "  \"function\": \"%s\",\n", func);
     fprintf(g_logger.log_file.f, "  \"message\": \"");
@@ -187,11 +191,13 @@ json_format:
     fprintf(g_logger.log_file.f, "\"\n"); // Closing the message value
     fprintf(g_logger.log_file.f, "}\n");  // Closing the JSON object
     fflush(g_logger.log_file.f);
+    free(current_datetime);
+    current_datetime = NULL;
     return;
 
 jsonl_format:
     fprintf(g_logger.log_file.f, "{");
-    fprintf(g_logger.log_file.f, "\"datetime\": \"%s\",", get_current_datetime());
+    fprintf(g_logger.log_file.f, "\"datetime\": \"%s\",", current_datetime);
     fprintf(g_logger.log_file.f, "\"severity\": \"%s\",", severity_nocolors[sev]);
     fprintf(g_logger.log_file.f, "\"function\": \"%s\",", func);
     fprintf(g_logger.log_file.f, "\"message\": \"");
@@ -202,6 +208,8 @@ jsonl_format:
 
     fprintf(g_logger.log_file.f, "\"}\n");
     fflush(g_logger.log_file.f);
+    free(current_datetime);
+    current_datetime = NULL;
     return;
 
 }

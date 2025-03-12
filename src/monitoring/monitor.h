@@ -385,6 +385,8 @@ write_fanotify_response:
 next_event:
             memset(masks, 0, sizeof(masks));
             close(metadata->fd);
+            SAFE_FREE(full_path);
+            SAFE_FREE(comm);
             metadata = FAN_EVENT_NEXT(metadata, buflen);
         }
     }
@@ -531,17 +533,15 @@ void handle_cdm_events(monitor_box_t* m_box) {
             }
 
             fanotify_helper_masks_to_string(metadata->mask, masks, MAX_MASKS_LEN);
-            if (file_name) {
-                log_message(INFO, __func__, "%s (%d): %s/%s == [%s]", comm, metadata->pid, path, file_name, masks);
-            } else {
-                log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, path, masks);
-            }
+            log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, full_path, masks);
 
 next_event:
             memset(masks, 0, sizeof(masks));
             close(metadata->fd);
             close(mount_fd);
             close(event_fd);
+            SAFE_FREE(path);
+            SAFE_FREE(comm);
             metadata = FAN_EVENT_NEXT(metadata, buflen);
         }
     }
