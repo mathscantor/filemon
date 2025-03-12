@@ -15,7 +15,7 @@
 #include <regex.h>
 #include <stdbool.h>
 #include <poll.h>
-#include <sys/inotify.h>
+#include <linux/version.h>
 
 #include "../args/parser.h"
 #include "../helpers/common.h"

@@ -241,3 +241,32 @@ bool is_in_process_names(char haystack[][MAX_PROCESS_NAME_LEN], size_t size, cha
     }
     return false;
 }
+
+bool is_gte_kernel_version(int major_version, int minor_version, int patch_version) {
+    struct utsname buffer;
+    
+    if (uname(&buffer) != 0) {
+        log_message(WARNING, __func__, "Unable to retrieve kernel version! Fanotify masks may be inaccurate!");
+        return false; 
+    }
+
+    int major, minor, patch;
+    if (sscanf(buffer.release, "%d.%d.%d", &major, &minor, &patch) != 3) {
+        log_message(WARNING, __func__, "Unable to parse kernel version! Fanotify masks may be inaccurate!");
+        return false; 
+    }
+
+    if (major > major_version) {
+        return true;  // Current kernel is newer
+    } else if (major == major_version) {
+        if (minor > minor_version) {
+            return true;  // Current kernel is newer
+        } else if (minor == minor_version) {
+            if (patch >= patch_version) {
+                return true;  // Current kernel is newer or equal
+            }
+        }
+    }
+
+    return false;  // Current kernel is older
+}

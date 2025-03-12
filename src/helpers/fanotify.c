@@ -123,53 +123,53 @@ uint32_t fanotify_helper_determine_flags(int fan_fd, uint64_t masks, char *mount
  */
 void fanotify_helper_flags_to_string(uint32_t flags, char *buf, size_t buf_len) {
 
-#ifdef FAN_MARK_ADD
+    #ifdef FAN_MARK_ADD
     if (flags & FAN_MARK_ADD) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_ADD, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_REMOVE
+    #ifdef FAN_MARK_REMOVE
     if (flags & FAN_MARK_REMOVE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_REMOVE, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_DONT_FOLLOW
+    #ifdef FAN_MARK_DONT_FOLLOW
     if (flags & FAN_MARK_DONT_FOLLOW) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_DONT_FOLLOW, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_ONLYDIR
+    #ifdef FAN_MARK_ONLYDIR
     if (flags & FAN_MARK_ONLYDIR) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_ONLYDIR, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_IGNORED_MASK
+    #ifdef FAN_MARK_IGNORED_MASK
     if (flags & FAN_MARK_IGNORED_MASK) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_IGNORED_MASK, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_IGNORED_SURV_MODIFY
+    #ifdef FAN_MARK_IGNORED_SURV_MODIFY
     if (flags & FAN_MARK_IGNORED_SURV_MODIFY) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_IGNORED_SURV_MODIFY, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_FLUSH
+    #ifdef FAN_MARK_FLUSH
     if (flags & FAN_MARK_FLUSH) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_FLUSH, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_EVICTABLE
+    #ifdef FAN_MARK_EVICTABLE
     if (flags & FAN_MARK_EVICTABLE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_EVICTABLE, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_IGNORE
+    #ifdef FAN_MARK_IGNORE
     if (flags & FAN_MARK_IGNORE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_IGNORE, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_INODE
+    #ifdef FAN_MARK_INODE
     if (flags & FAN_MARK_INODE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_INODE, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_MOUNT
+    #ifdef FAN_MARK_MOUNT
     if (flags & FAN_MARK_MOUNT) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_MOUNT, "); 
-#endif
+    #endif
 
-#ifdef FAN_MARK_FILESYSTEM
+    #ifdef FAN_MARK_FILESYSTEM
     if (flags & FAN_MARK_FILESYSTEM) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MARK_FILESYSTEM, "); 
-#endif
+    #endif
 
     buf[strlen(buf) - 2] = '\0';
     return;
@@ -185,77 +185,77 @@ void fanotify_helper_flags_to_string(uint32_t flags, char *buf, size_t buf_len) 
  */
 void fanotify_helper_masks_to_string(uint64_t masks, char *buf, size_t buf_len) {
 
-#ifdef FAN_ACCESS
+    #ifdef FAN_ACCESS
     if (masks & FAN_ACCESS) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_ACCESS, ");
-#endif
+    #endif
 
-#ifdef FAN_ATTRIB
+    #ifdef FAN_ATTRIB
     if (masks & FAN_ATTRIB) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_ATTRIB, ");
-#endif
+    #endif
 
-#ifdef FAN_MODIFY
+    #ifdef FAN_MODIFY
     if (masks & FAN_MODIFY) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MODIFY, ");
-#endif
+    #endif
 
-#ifdef FAN_CLOSE_WRITE
+    #ifdef FAN_CLOSE_WRITE
     if (masks & FAN_CLOSE_WRITE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_CLOSE_WRITE, ");
-#endif
+    #endif
 
-#ifdef FAN_CLOSE_NOWRITE
+    #ifdef FAN_CLOSE_NOWRITE
     if (masks & FAN_CLOSE_NOWRITE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_CLOSE_NOWRITE, ");
-#endif
+    #endif
 
-#ifdef FAN_OPEN
+    #ifdef FAN_OPEN
     if (masks & FAN_OPEN) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_OPEN, ");
-#endif
+    #endif
 
-#ifdef FAN_MOVED_FROM
+    #ifdef FAN_MOVED_FROM
     if (masks & FAN_MOVED_FROM) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MOVED_FROM, ");
-#endif
+    #endif
 
-#ifdef FAN_MOVED_TO
+    #ifdef FAN_MOVED_TO
     if (masks & FAN_MOVED_TO) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_MOVED_TO, ");
-#endif
+    #endif
 
-#ifdef FAN_CREATE
+    #ifdef FAN_CREATE
     if (masks & FAN_CREATE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_CREATE, ");
-#endif
+    #endif
 
-#ifdef FAN_DELETE
+    #ifdef FAN_DELETE
     if (masks & FAN_DELETE) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_DELETE, ");
-#endif
+    #endif
 
-#ifdef FAN_DELETE_SELF
+    #ifdef FAN_DELETE_SELF
     if (masks & FAN_DELETE_SELF) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_DELETE_SELF, ");
-#endif 
+    #endif 
 
-#ifdef FAN_OPEN_EXEC
+    #ifdef FAN_OPEN_EXEC
     if (masks & FAN_OPEN_EXEC) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_OPEN_EXEC, ");
-#endif
+    #endif
 
-#ifdef FAN_RENAME
-if (masks & FAN_RENAME) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_RENAME, ");
-#endif
+    #ifdef FAN_RENAME
+    if (masks & FAN_RENAME) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_RENAME, ");
+    #endif
 
-#ifdef FAN_ONDIR
+    #ifdef FAN_ONDIR
     if (masks & FAN_ONDIR) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_ONDIR, ");
-#endif
+    #endif
 
-#ifdef FAN_OPEN_PERM
+    #ifdef FAN_OPEN_PERM
     if (masks & FAN_OPEN_PERM) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_OPEN_PERM, ");
-#endif
+    #endif
 
-#ifdef FAN_ACCESS_PERM
+    #ifdef FAN_ACCESS_PERM
     if (masks & FAN_ACCESS_PERM) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_ACCESS_PERM, ");
-#endif
+    #endif
 
-#ifdef FAN_OPEN_EXEC_PERM
+    #ifdef FAN_OPEN_EXEC_PERM
     if (masks & FAN_OPEN_EXEC_PERM) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_OPEN_EXEC_PERM, ");
-#endif
+    #endif
 
-#ifdef FAN_EVENT_ON_CHILD
+    #ifdef FAN_EVENT_ON_CHILD
     if (masks & FAN_EVENT_ON_CHILD) snprintf(buf + strlen(buf), buf_len - strlen(buf), "FAN_EVENT_ON_CHILD, ");
-#endif
+    #endif
 
     buf[strlen(buf) - 2] = '\0';
     return;

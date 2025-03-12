@@ -79,7 +79,9 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     #endif
 
     #ifdef FAN_OPEN_EXEC
-    m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC;
+    /* According to fanotify man page - FAN_OPEN_EXEC (since Linux 5.0) */
+    if (is_gte_kernel_version(5, 0, 0))
+        m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC;
     #endif
 
     #ifdef FAN_CLOSE_WRITE
@@ -100,7 +102,9 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
         #endif
 
         #ifdef FAN_OPEN_EXEC_PERM
-        m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC_PERM;
+        /* According to fanotify man page - FAN_OPEN_EXEC_PERM (since Linux 5.0) */
+        if (is_gte_kernel_version(5, 0, 0))
+            m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC_PERM;
         #endif
     }
 
@@ -119,27 +123,39 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     #endif
 
     #ifdef FAN_CREATE
-    m_box->fanotify_info.create_delete_move.masks |= FAN_CREATE;
+    /* According to fanotify man page - FAN_CREATE (since Linux 5.1) */
+    if (is_gte_kernel_version(5, 1, 0))
+        m_box->fanotify_info.create_delete_move.masks |= FAN_CREATE;
     #endif
         
     #ifdef FAN_DELETE
-    m_box->fanotify_info.create_delete_move.masks |= FAN_DELETE;
+    /* According to fanotify man page - FAN_DELETE (since Linux 5.1) */
+    if (is_gte_kernel_version(5, 1, 0))
+        m_box->fanotify_info.create_delete_move.masks |= FAN_DELETE;
     #endif
 
     #ifdef FAN_RENAME 
-    m_box->fanotify_info.create_delete_move.masks |= FAN_RENAME;
+    /* According to fanotify man page - FAN_RENAME (since Linux 5.17, 5.15.154, and 5.10.220) */
+    if (is_gte_kernel_version(5, 17, 0) || is_gte_kernel_version(5, 15, 154) || is_gte_kernel_version(5, 10, 220))
+        m_box->fanotify_info.create_delete_move.masks |= FAN_RENAME;
     #endif 
 
     #ifdef FAN_MOVED_FROM
-    m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_FROM;
+    /* According to fanotify man page - FAN_MOVED_FROM (since Linux 5.1) */
+    if (is_gte_kernel_version(5, 1, 0))
+        m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_FROM;
     #endif
 
     #ifdef FAN_MOVED_TO
-    m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_TO;
+    /* According to fanotify man page - FAN_MOVED_TO (since Linux 5.1) */
+    if (is_gte_kernel_version(5, 1, 0))
+        m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_TO;
     #endif
 
     #ifdef FAN_ATTRIB
-    m_box->fanotify_info.create_delete_move.masks |= FAN_ATTRIB;
+    /* According to fanotify man page - FAN_ATTRIB (since Linux 5.1) */
+    if (is_gte_kernel_version(5, 1, 0))
+        m_box->fanotify_info.create_delete_move.masks |= FAN_ATTRIB;
     #endif
 
     m_box->fanotify_info.create_delete_move.flags = fanotify_helper_determine_flags(m_box->fanotify_info.create_delete_move.fan_fd, 
@@ -549,7 +565,7 @@ void print_box(monitor_box_t* m_box, uint32_t index) {
     char *buf_exclude_process = concatenate_process_names(m_box->filters.exclude_process, MAX_PROCESS_FILTER);
 
     log_message(DEBUG, __func__, "Monitor Box %u: { enable_perms_check = %d, fanotify_info = { is_config_fanotify_enabled = %d, is_config_fanotify_access_permissions_enabled = %d, read_write_execute = { fan_fd = %d, flags = %u (%s), masks = %u (%s) }, create_delete_move = { fan_fd = %d, flags = %u (%s), masks = %u (%s) }, mount_path = \"%s\" }, filters = { include_pids = {%s}, exclude_pids = {%s}, include_process = {%s}, exclude_process = {%s}, include_path_regex = \"%s\", exclude_path_regex = \"%s\" } }",
-    index, m_box->enable_perms_check, 
+    index + 1, m_box->enable_perms_check, 
     m_box->fanotify_info.is_config_fanotify_enabled, 
     m_box->fanotify_info.is_config_fanotify_access_permissions_enabled,
     m_box->fanotify_info.read_write_execute.fan_fd,

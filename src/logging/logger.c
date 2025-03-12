@@ -183,7 +183,7 @@ char *get_current_datetime(void) {
 
     struct timeval tv;
     gettimeofday(&tv, NULL);
-    struct tm* local_time = localtime(&tv.tv_sec);
+    struct tm *local_time = localtime(&tv.tv_sec);
     int utc_offset = local_time->tm_gmtoff;
     int hours_offset = utc_offset / 3600;
     int minutes_offset = abs((utc_offset % 3600) / 60);
