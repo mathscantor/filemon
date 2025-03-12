@@ -45,6 +45,7 @@ typedef struct {
 } thread_arg_t;
 
 bool g_monitor_force_stop = false;
+pthread_mutex_t g_log_mutex;
 
 void init_monitor_box(monitor_box_t *,user_args_t *, char *);
 void begin_monitor(monitor_box_t **, size_t);
@@ -211,6 +212,7 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
     int ret;
     size_t num_running_threads = 0;
 
+    pthread_mutex_init(&g_log_mutex, NULL);
     pthread_t *monitoring_threads = (pthread_t *)malloc(num_boxes * 2 * sizeof(pthread_t));
     for (size_t i = 0; i < num_boxes; i++) {
         print_box(m_boxes[i], i);
@@ -380,7 +382,9 @@ write_fanotify_response:
             }
             
             fanotify_helper_masks_to_string(metadata->mask, masks, MAX_MASKS_LEN);
+            pthread_mutex_lock(&g_log_mutex);
             log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, full_path, masks);
+            pthread_mutex_unlock(&g_log_mutex);
 
 next_event:
             memset(masks, 0, sizeof(masks));
@@ -533,7 +537,9 @@ void handle_cdm_events(monitor_box_t* m_box) {
             }
 
             fanotify_helper_masks_to_string(metadata->mask, masks, MAX_MASKS_LEN);
+            pthread_mutex_lock(&g_log_mutex);
             log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, full_path, masks);
+            pthread_mutex_unlock(&g_log_mutex);
 
 next_event:
             memset(masks, 0, sizeof(masks));
@@ -558,6 +564,7 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
     }
     log_message(INFO, __func__, "Stopping filemon...");
 
+    pthread_mutex_destroy(&g_log_mutex);
     for (size_t i = 0; i < num_boxes; i++) {
         fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, FAN_MARK_FLUSH, 0, 0, NULL);
         SAFE_FREE(m_boxes[i]);
