@@ -4,9 +4,8 @@
 
 ## Description
 
-Filemon is created specifically for Linux Operating Systems in monitoring files and directories accessed by different processes. I have written this tool as a way to showcase the usage of all `FAN_*` flags. The monitoring of file/directory creation, deletion, renaming etc. is handled by one thread while the monitoring of read, write, execute etc. events are handled by another thread.
+Filemon is a multithreaded file/directory monitoring tool, designed specifically for the Linux operating system using the [fanotify](https://man7.org/linux/man-pages/man7/fanotify.7.html) API.
 
-All events are properly logged with a timestamp, process name, PID, file/directory path and its `FAN_*` flags.
 
 ## Compilation
 
@@ -27,17 +26,18 @@ A successfully built Filemon will be generated in **build/filemon**.
 As fanotify requires root permissions, remember to run it with sudo or change to the root user before running!
 
 ```
-Usage: filemon DIRECTORY [-h] [-v] [-o OUTPUT] [-m MOUNT]
+Usage: filemon DIRECTORY [-h] [-v] [-V] [-m MOUNTS] [-o OUTPUT]
                [-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]
                [-I INCLUDE_PIDS | -E EXCLUDE_PIDS]
                [-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P]
 Options:
   -h  | --help                   Show help
   -v  | --verbose                Enables debug logs.
+  -V  | --version                Show the version of filemon.
+  -m  | --mounts                 Mounts to monitor (Maximum 5). Default value: "/" (Eg. -m "/tmp /opt /")
   -i  | --include-pattern        Only show events when path matches regex pattern.
   -e  | --exclude-pattern        Ignore events when path matches regex pattern.
   -o  | --output                 Output to file
-  -m  | --mount                  The mount path. (Use this option to override auto search from fstab)
   -I  | --include-pids           Only show events related to these pids. (Eg. -I "4728 4279")
   -E  | --exclude-pids           Ignore events related to these pids. (Eg. -E "6728 6817")
   -N  | --include-process        Only show events related to these process names. (Eg. -N "python3 systemd")
@@ -46,87 +46,60 @@ Options:
 ```
 
 ### Example 1 - Simple Usage
-
-Simply state the directory path to monitor. This will recursively monitor all sub-directories, including the parent directory as well.
+Simply run it without stating any options, leaving everything as default which will only monitor "/" mount.
 
 ```
-# ./build/filemon /tmp/new
+# ./build/filemon
 
-16-08-2024 23:34:36.370 UTC+08:00    [INF] Starting filemon...
-16-08-2024 23:34:36.373 UTC+08:00    [INF] Monitor Box Information:
-============================ MONITOR BOX ===========================
-- Parent Path: /tmp/new
-- Mount Path: /
-
-------------------- FANOTIFY INFO -------------------
-- CONFIG_FANOTIFY Enabled: 1
-- CONFIG_FANOTIFY_ACCESS_PERMISSIONS Enabled: 1
-- Fanotify Read, Write, Execute FD: 3
-        └─ Flags: FAN_ACCESS, FAN_OPEN, FAN_MODIFY, FAN_OPEN_EXEC, FAN_CLOSE_WRITE, FAN_CLOSE_NOWRITE, FAN_OPEN_PERM, FAN_ACCESS_PERM, FAN_OPEN_EXEC_PERM
-- Fanotify Create, Delete, Move FD: 4
-        └─ Flags: FAN_CREATE, FAN_DELETE, FAN_RENAME, FAN_MOVED_FROM, FAN_MOVED_TO
-
----------------------- FILTERS ----------------------
-- Include PIDs: 
-- Exclude PIDs: 
-
-- Include Processes: 
-- Exclude Processes: 
-
-- Include Pattern: 
-- Exclude Pattern:
-
-=====================================================================
-16-08-2024 23:34:36.373 UTC+08:00    [INF] Successfully started filemon.
-16-08-2024 23:34:50.718 UTC+08:00    [INF] mkdir (6933): /tmp/new/aa == [FAN_CREATE, FAN_ONDIR]
-16-08-2024 23:35:06.195 UTC+08:00    [INF] touch (7006): /tmp/new/aa/testfile == [FAN_OPEN_PERM]
-16-08-2024 23:35:06.195 UTC+08:00    [INF] touch (7006): /tmp/new/aa/testfile == [FAN_CREATE]
-16-08-2024 23:35:06.195 UTC+08:00    [INF] touch (7006): /tmp/new/aa/testfile == [FAN_OPEN]
-16-08-2024 23:35:06.195 UTC+08:00    [INF] touch (7006): /tmp/new/aa/testfile == [FAN_CLOSE_WRITE]
+[12-03-2025 17:50:14.050 UTC+08:00] [INF] main - Starting filemon...
+[12-03-2025 17:50:14.052 UTC+08:00] [INF] begin_monitor - Successfully started filemon (Monitoring threads: 2).
+...
+[12-03-2025 17:45:02.142 UTC+08:00] [INF] handle_rwe_events - code (39018): /usr/bin/dash == [FAN_CLOSE_NOWRITE]
+[12-03-2025 17:45:02.142 UTC+08:00] [INF] handle_rwe_events - code (39018): /usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2 == [FAN_CLOSE_NOWRITE]
+[12-03-2025 17:45:02.142 UTC+08:00] [INF] handle_rwe_events - code (39018): /usr/lib/x86_64-linux-gnu/libc.so.6 == [FAN_CLOSE_NOWRITE]
 ...
 ```
 
-### Example 2 - Ignore Events From Certain Path Using Regex
+### Example 2 - Only Show Events Where File Path Matches Regex
 
-This option is great when you are dealing with a directory that contains many files and you specifically know what kind of files/sub-directories to ignore.
+This option is great when you know which files/directories are of interest. 
 
+This example shows how to filter for events where the file paths start with "/tmp".
 ```
-# ./build/filemon -e ".*\.txt" /tmp/new
+# ./build/filemon -i "^\/tmp.*"
 
-16-08-2024 23:38:10.979 UTC+08:00    [INF] Starting filemon...
 ...
-16-08-2024 23:38:10.981 UTC+08:00    [INF] Successfully started filemon.
-16-08-2024 23:38:51.800 UTC+08:00    [INF] rm (7691): /tmp/new/aa == [FAN_DELETE, FAN_ONDIR]
-...
-```
-
-### Example 3 - Show Events by PIDs
-
-You can also filter for events that match a given list of PIDs.
-
-```
-# ./build/filemon -I "22467 22498" /tmp/new
-
-16-08-2024 23:42:21.469 UTC+08:00    [INF] Starting filemon...
-...
-04-09-2024 16:26:38.869 UTC+08:00    [INF] Successfully started filemon.
-04-09-2024 16:27:14.335 UTC+08:00    [INF] python3 (22467): /tmp/new/test == [FAN_OPEN_PERM]
-04-09-2024 16:27:14.335 UTC+08:00    [INF] python3 (22467): /tmp/new/test == [FAN_OPEN]
-04-09-2024 16:27:14.335 UTC+08:00    [INF] python3 (22467): /tmp/new/test == [FAN_CREATE]
-04-09-2024 16:27:18.142 UTC+08:00    [INF] python3 (22467): /tmp/new/test == [FAN_CLOSE_WRITE]
-04-09-2024 16:27:30.015 UTC+08:00    [INF] python3 (22498): /tmp/new/test == [FAN_DELETE]
+[12-03-2025 17:51:04.100 UTC+08:00] [INF] handle_cdm_events - mkdir (39673): /tmp/testdir == [FAN_CREATE, FAN_ONDIR]
+[12-03-2025 17:51:07.091 UTC+08:00] [INF] handle_cdm_events - rmdir (39695): /tmp/testdir == [FAN_DELETE, FAN_ONDIR]
 ...
 ```
 
-### Example 4 - Log All Outputs to File
+### Example 3 - Only Show Events From Specific Processes
 
-To redirect all outputs for `stdout` to a file, use the `-l` option and specify a file path to store the logs in.
+You can also filter for events that match a list of processes.
 
+This example below shows how to filter only for events generated by "bash" and "python3".
 ```
-# ./build/filemon -o log.txt /tmp/new
+# ./build/filemon -N "bash python3"
+
+...
+[12-03-2025 17:55:11.668 UTC+08:00] [INF] handle_rwe_events - python3 (39975): /etc/ld.so.cache == [FAN_OPEN]
+...
+[12-03-2025 17:57:17.414 UTC+08:00] [INF] handle_rwe_events - bash (40124): /home/gerald/.bash_history == [FAN_OPEN]
+...
+```
+
+### Example 4 - Log Output to File
+
+From v1.1.0 onwards, filemon now supports logging to different types of file formats (`.txt`, `.csv`, `.json` and `.jsonl`).
+
+The example below shows how to output all messages to output.csv.
+```
+# ./build/filemon -o output.csv
 
 [+] Starting filemon...
 [+] Successfully started filemon.
-[+] All output is redirected to "/home/user/repositories/filemon/log.txt"
+[+] All output is redirected to "/home/gerald/repositories/filemon/output.csv"
+...
 ```
 

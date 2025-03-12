@@ -243,7 +243,7 @@ void usage(void){
     printf("  %-30s %s\n", "-h  | --help", "Show help");
     printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
     printf("  %-30s %s\n", "-V  | --version", "Show the version of filemon.");
-    printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor. Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
+    printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor (Maximum 5). Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
     printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
     printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
     printf("  %-30s %s\n", "-o  | --output", "Output to file");
