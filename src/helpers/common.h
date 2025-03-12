@@ -73,13 +73,25 @@ char *get_path_from_fd(int fd) {
  */
 char *get_comm_from_pid(uint32_t pid){
 
-    char *comm = (char*)malloc(MAX_PROCESS_NAME_LEN);
     char *comm_path = (char*)malloc(PATH_MAX);
+    if (comm_path == NULL) {
+        // log_message(WARNING, __func__, "Unable to allocate %d bytes to comm_path!", MAX_PROCESS_NAME_LEN);
+        return NULL;
+    }
+
     snprintf(comm_path, PATH_MAX, "/proc/%d/comm", pid);
     FILE *comm_file = fopen(comm_path, "r");
-
     if (comm_file == NULL) {
         // unknown because the short-lived process already finished before we can even get the name
+        // log_message(WARNING, __func__, "Unable to fopen \"%s\"!", comm_path);
+        SAFE_FREE(comm_path);
+        return NULL;
+    }
+
+    char *comm = (char*)malloc(MAX_PROCESS_NAME_LEN);
+    if (comm == NULL) {
+        // log_message(WARNING, __func__, "Unable to allocate %d bytes to comm!", MAX_PROCESS_NAME_LEN);
+        SAFE_FREE(comm_path);
         return NULL;
     }
 
@@ -88,8 +100,10 @@ char *get_comm_from_pid(uint32_t pid){
     }
     close(fileno(comm_file));
     if (comm[0] == '\0' || comm[0] == ' ') {
+        SAFE_FREE(comm_path);
         return NULL;
     }
+
     SAFE_FREE(comm_path);
     return comm;
 }

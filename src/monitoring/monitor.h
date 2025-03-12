@@ -380,7 +380,7 @@ write_fanotify_response:
             }
             
             fanotify_helper_masks_to_string(metadata->mask, masks, MAX_MASKS_LEN);
-            log_message(INFO, __func__, "%s (%d): %s == [%s]", comm, metadata->pid, full_path, masks);
+            log_message(INFO, __func__, "[ %s ] - %s (%d): %s == [%s]", m_box->fanotify_info.mount_path, comm, metadata->pid, full_path, masks);
 
 next_event:
             memset(masks, 0, sizeof(masks));
