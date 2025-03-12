@@ -33,6 +33,7 @@ typedef struct {
 char *get_path_from_fd(int fd);
 char *get_comm_from_pid(uint32_t pid);
 char *get_comm_from_cache(uint32_t pid, comm_cache_t *);
+bool is_printable_ascii(char c);
 bool path_exists(const char* path);
 bool is_directory(const char* path);
 bool regex_search(regex_t *, const char* );
@@ -104,6 +105,13 @@ char *get_comm_from_pid(uint32_t pid){
         return NULL;
     }
 
+    for (size_t i = 0; i < MAX_PROCESS_NAME_LEN; i++){
+        if (comm[i] != '\0' && !is_printable_ascii(comm[i])) {
+            SAFE_FREE(comm_path);
+            return NULL;
+        }
+    }
+
     SAFE_FREE(comm_path);
     return comm;
 }
@@ -116,6 +124,7 @@ char *get_comm_from_cache(uint32_t pid, comm_cache_t *comm_cache) {
     return strdup(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]);
 }
 
+
 void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
 
     if (strcmp(comm, comm_cache->comms[pid % MAX_COMM_CACHE_SIZE]) == 0) {
@@ -126,6 +135,13 @@ void set_comm_to_cache(uint32_t pid, char *comm, comm_cache_t *comm_cache) {
     memset(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE], 0, MAX_PROCESS_NAME_LEN);
     snprintf(comm_cache->comms[pid % MAX_COMM_CACHE_SIZE], MAX_PROCESS_NAME_LEN, "%s", comm);
     return;
+}
+
+bool is_printable_ascii(char c) {
+    // Skip ' ' character (32)
+    if (c >= 33 && c <= 126)
+        return true;
+    return false;
 }
 
 bool path_exists(const char* path) {
