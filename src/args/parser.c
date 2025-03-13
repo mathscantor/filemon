@@ -258,13 +258,13 @@ void usage(void){
     printf("Usage: filemon DIRECTORY [-h] [-v] [-V] [-m MOUNTS] [-o OUTPUT]\n" 
     "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]\n"
     "%15s[-I INCLUDE_PIDS | -E EXCLUDE_PIDS]\n"
-    "%15s[-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P]\n", "", "", "");
+    "%15s[-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P] [-s EVENTS]\n", "", "", "");
     printf("Options:\n");
     printf("  %-30s %s\n", "-h  | --help", "Show help");
     printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
     printf("  %-30s %s\n", "-V  | --version", "Show the version of filemon.");
     printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor. Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
-    printf("  %-30s %s\n", "", "Maximum number of 5 mounts. Last stated mount has highest priority");
+    printf("  %-30s %s\n", "", "Maximum number of 5 mounts. Last stated mount has highest priority.");
     printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
     printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
     printf("  %-30s %s\n", "-o  | --output", "Output to file");
@@ -274,7 +274,7 @@ void usage(void){
     printf("  %-30s %s\n", "-X  | --exclude-process", "Ignore events related to these process names. (Eg. -X \"python3 systemd\")");
     printf("  %-30s %s\n", "-P  | --enable-perm-flags", "Add permission flags to fanotify marking. (WARNING: Will slow down system!)");
     printf("  %-30s %s\n", "-s  | --events", "Filter by events (Eg. -s \"write create\"))");
-    printf("  %-30s %s\n", "", "Maximum number of 6 events [[\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]");
+    printf("  %-30s %s\n", "", "Maximum number of 6 events: [\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]");
     return;
 } 
 
