@@ -54,20 +54,23 @@ As fanotify requires root permissions, remember to run it with sudo or change to
 Usage: filemon DIRECTORY [-h] [-v] [-V] [-m MOUNTS] [-o OUTPUT]
                [-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]
                [-I INCLUDE_PIDS | -E EXCLUDE_PIDS]
-               [-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P]
+               [-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P] [-s EVENTS]
 Options:
   -h  | --help                   Show help
   -v  | --verbose                Enables debug logs.
   -V  | --version                Show the version of filemon.
-  -m  | --mounts                 Mounts to monitor (Maximum 5). Default value: "/" (Eg. -m "/tmp /opt /")
+  -m  | --mounts                 Mounts to monitor. Default value: "/" (Eg. -m "/tmp /opt /")
+                                 Maximum number of 5 mounts. Last stated mount has highest priority.
   -i  | --include-pattern        Only show events when path matches regex pattern.
   -e  | --exclude-pattern        Ignore events when path matches regex pattern.
-  -o  | --output                 Output to file
+  -o  | --output                 Output to file. (".txt", ".csv", ".json", ".jsonl")
   -I  | --include-pids           Only show events related to these pids. (Eg. -I "4728 4279")
   -E  | --exclude-pids           Ignore events related to these pids. (Eg. -E "6728 6817")
   -N  | --include-process        Only show events related to these process names. (Eg. -N "python3 systemd")
   -X  | --exclude-process        Ignore events related to these process names. (Eg. -X "python3 systemd")
   -P  | --enable-perm-flags      Add permission flags to fanotify marking. (WARNING: Will slow down system!)
+  -s  | --events                 Filter by events (Eg. -s "write create")
+                                 Maximum number of 6 events: ["read", "write", "execute", "create", "delete", "move"]
 ```
 
 ### Example 1 - Simple Usage

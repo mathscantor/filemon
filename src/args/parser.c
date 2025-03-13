@@ -267,13 +267,13 @@ void usage(void){
     printf("  %-30s %s\n", "", "Maximum number of 5 mounts. Last stated mount has highest priority.");
     printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
     printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
-    printf("  %-30s %s\n", "-o  | --output", "Output to file");
+    printf("  %-30s %s\n", "-o  | --output", "Output to file. (\".txt\", \".csv\", \".json\", \".jsonl\")");
     printf("  %-30s %s\n", "-I  | --include-pids", "Only show events related to these pids. (Eg. -I \"4728 4279\")");
     printf("  %-30s %s\n", "-E  | --exclude-pids", "Ignore events related to these pids. (Eg. -E \"6728 6817\")");
     printf("  %-30s %s\n", "-N  | --include-process", "Only show events related to these process names. (Eg. -N \"python3 systemd\")");
     printf("  %-30s %s\n", "-X  | --exclude-process", "Ignore events related to these process names. (Eg. -X \"python3 systemd\")");
     printf("  %-30s %s\n", "-P  | --enable-perm-flags", "Add permission flags to fanotify marking. (WARNING: Will slow down system!)");
-    printf("  %-30s %s\n", "-s  | --events", "Filter by events (Eg. -s \"write create\"))");
+    printf("  %-30s %s\n", "-s  | --events", "Filter by events (Eg. -s \"write create\")");
     printf("  %-30s %s\n", "", "Maximum number of 6 events: [\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]");
     return;
 } 
