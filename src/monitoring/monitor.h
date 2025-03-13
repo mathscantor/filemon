@@ -31,6 +31,7 @@ typedef struct {
     regex_t *include_path_regex;
     char exclude_path_pattern[MAX_REGEX_LEN];
     regex_t *exclude_path_regex;
+    char *events[MAX_EVENT_FILTERS];
 } filters_t;
 
 typedef struct {

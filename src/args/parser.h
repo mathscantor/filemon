@@ -5,6 +5,7 @@
 #include <string.h>
 #include <regex.h>
 #include <stdint.h>
+#include <errno.h>
 
 #include "../filemon.h"
 #include "../helpers/common.h"
@@ -45,9 +46,16 @@ typedef struct {
 
     /* Enable Permission Checks */
     bool oopts_enable_perms_check;
+
+    /* Filter for specific events only */
+    char *oopts_events[MAX_EVENT_FILTERS];
 } user_args_t;
+
+extern char *allowed_events[MAX_EVENT_FILTERS];
 
 user_args_t parse_args(int, char* []);
 void usage(void);
+bool is_valid_integer(const char *);
+bool is_valid_event(const char *);
 
 #endif

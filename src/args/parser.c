@@ -1,5 +1,6 @@
 #include "parser.h"
-#include "../filemon.h"
+
+char *allowed_events[MAX_EVENT_FILTERS] = { "read", "write", "execute", "create", "delete", "move" };
 
 /**
  * @brief Parses command-line arguments and returns a structured representation.
@@ -33,7 +34,8 @@ user_args_t parse_args(int argc, char *argv[]) {
         .oopts_exclude_pids = {0},
         .oopts_include_process = {{0}},
         .oopts_exclude_process = {{0}},
-        .oopts_enable_perms_check =  false
+        .oopts_enable_perms_check =  false,
+        .oopts_events = {NULL}
     };    
 
     struct option long_options[] = {
@@ -49,10 +51,11 @@ user_args_t parse_args(int argc, char *argv[]) {
         {"include-process", required_argument, 0, 'N'},
         {"exclude-process", required_argument, 0, 'X'},
         {"enable-perms-check", no_argument, 0, 'P'},
+        {"events", required_argument, 0, 's'},
         {0, 0, 0, 0}
     };
 
-    while ((opt = getopt_long(argc, argv, "hvVm:i:e:o:I:E:N:X:P", long_options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "hvVm:i:e:o:I:E:N:X:Ps:", long_options, &option_index)) != -1) {
         switch (opt) {
             case 'h':
                 usage();
@@ -78,7 +81,7 @@ user_args_t parse_args(int argc, char *argv[]) {
                 }
                 user_args.oopts_num_mounts = 0;
                 token = strtok(optarg, " ");
-                for (int i = 0; i < MAX_MOUNT_POINTS; i++) {
+                for (size_t i = 0; i < MAX_MOUNT_POINTS; i++) {
                     if (token == NULL) 
                         break;
                     if (!is_mount_point(token, all_mounts, total_num_mounts)) {
@@ -148,7 +151,7 @@ user_args_t parse_args(int argc, char *argv[]) {
                     log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 } 
-                for (int i = 0; i < MAX_PROCESS_FILTER; i++) {
+                for (size_t i = 0; i < MAX_PROCESS_FILTER; i++) {
                     if (token == NULL) break;
                     if (!is_valid_integer(token)) {
                         log_message(ERROR, __func__, "-%c option: '%s' is not an integer.", opt, token);
@@ -161,14 +164,14 @@ user_args_t parse_args(int argc, char *argv[]) {
             case 'E':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_include_pids[0] != 0) {
-                    log_message(ERROR, __func__, "-%c option: Cannot be used with -I option at the same time.", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -I option at the same time.", opt);
                     exit(EXIT_FAILURE);
                 } 
                 if (user_args.oopts_exclude_pids[0] != 0) {
-                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 } 
-                for (int i = 0; i < MAX_PROCESS_FILTER; i++) {
+                for (size_t i = 0; i < MAX_PROCESS_FILTER; i++) {
                     if (token == NULL) break;
                     if (!is_valid_integer(token)) {
                         log_message(ERROR, __func__, "%c option: '%s' is not an integer.", opt, token);
@@ -181,14 +184,14 @@ user_args_t parse_args(int argc, char *argv[]) {
             case 'N':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_exclude_process[0][0]) {
-                    log_message(ERROR, __func__, "-%c option: Cannot be used with -X option at the same time.", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -X option at the same time.", opt);
                     exit(EXIT_FAILURE);
                 } 
                 if (user_args.oopts_include_process[0][0]) {
-                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 } 
-                for (int i = 0; i < MAX_PROCESS_FILTER; i++){
+                for (size_t i = 0; i < MAX_PROCESS_FILTER; i++){
                     if (token == NULL) break;
                     snprintf(user_args.oopts_include_process[i], MAX_PROCESS_NAME_LEN, "%s", token);
                     token = strtok(NULL, " ");
@@ -197,14 +200,14 @@ user_args_t parse_args(int argc, char *argv[]) {
             case 'X':
                 token = strtok(optarg, " ");
                 if (user_args.oopts_include_process[0][0]) {
-                    log_message(ERROR, __func__, "-%c option: Cannot be used with -N option at the same time.", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used with -N option at the same time.", opt);
                     exit(EXIT_FAILURE);
                 } 
                 if (user_args.oopts_exclude_process[0][0]) {
-                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt, token);
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
                     exit(EXIT_FAILURE);
                 } 
-                for (int i = 0; i < MAX_PROCESS_FILTER; i++){
+                for (size_t i = 0; i < MAX_PROCESS_FILTER; i++){
                     if (token == NULL) break;
                     snprintf(user_args.oopts_exclude_process[i], MAX_PROCESS_NAME_LEN, "%s", token);
                     token = strtok(NULL, " ");
@@ -216,6 +219,22 @@ user_args_t parse_args(int argc, char *argv[]) {
                     exit(EXIT_FAILURE);
                 }
                 user_args.oopts_enable_perms_check = true;
+                break;
+            case 's':
+                token = strtok(optarg, " ");
+                if (user_args.oopts_events[0] != NULL) {
+                    log_message(ERROR, __func__, "-%c option: Cannot be used more than once.", opt);
+                    exit(EXIT_FAILURE);
+                } 
+                for (size_t i = 0; i < MAX_EVENT_FILTERS; i++){
+                    if (token == NULL) break;
+                    if (!is_valid_event(token)) {
+                        log_message(ERROR, __func__, "-%c option: Not a valid event! Allowed events: [\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]");
+                        exit(EXIT_FAILURE);
+                    }
+                    user_args.oopts_events[i] = strdup(token);
+                    token = strtok(NULL, " ");
+                }
                 break;
             default:
                 usage();
@@ -244,7 +263,8 @@ void usage(void){
     printf("  %-30s %s\n", "-h  | --help", "Show help");
     printf("  %-30s %s\n", "-v  | --verbose", "Enables debug logs.");
     printf("  %-30s %s\n", "-V  | --version", "Show the version of filemon.");
-    printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor (Maximum 5). Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
+    printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor. Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
+    printf("  %-30s %s\n", "", "Maximum number of 5 mounts. Last stated mount has highest priority");
     printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
     printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
     printf("  %-30s %s\n", "-o  | --output", "Output to file");
@@ -253,5 +273,54 @@ void usage(void){
     printf("  %-30s %s\n", "-N  | --include-process", "Only show events related to these process names. (Eg. -N \"python3 systemd\")");
     printf("  %-30s %s\n", "-X  | --exclude-process", "Ignore events related to these process names. (Eg. -X \"python3 systemd\")");
     printf("  %-30s %s\n", "-P  | --enable-perm-flags", "Add permission flags to fanotify marking. (WARNING: Will slow down system!)");
+    printf("  %-30s %s\n", "-s  | --events", "Filter by events (Eg. -s \"write create\"))");
+    printf("  %-30s %s\n", "", "Maximum number of 6 events [[\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]");
     return;
 } 
+
+/**
+ * @brief Checks if the given string represents a valid integer.
+ * 
+ * This function attempts to convert the input string to a long integer using
+ * `strtol`. It ensures the string is a valid integer representation by checking
+ * for errors such as out-of-range values, invalid characters, or empty strings.
+ * 
+ * @param str The string to check.
+ * @return `true` if the string is a valid integer, `false` otherwise.
+ * 
+ * @note The function uses `strtol` to convert the string and checks for errors
+ * like out-of-range values (`LONG_MAX`, `LONG_MIN`) and invalid characters.
+ * It also ensures the string doesn't contain extraneous non-numeric characters.
+ */
+bool is_valid_integer(const char *str) {
+    char *endptr;
+    errno = 0;
+
+    long val = strtol(str, &endptr, 10);
+
+    if (errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) {
+        return false;
+    }
+
+    if (errno != 0 && val == 0) {
+        return false;
+    }
+
+    if (endptr == str) {
+        return false;
+    }
+
+    if (*endptr != '\0') {
+        return false;
+    }
+
+    return true;
+}
+
+bool is_valid_event(const char *event) {
+    for (size_t i = 0; i < MAX_EVENT_FILTERS; i++) {
+        if (strcmp(event, allowed_events[i]) == 0)
+            return true;
+    }
+    return false;
+}

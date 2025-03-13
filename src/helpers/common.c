@@ -251,45 +251,6 @@ char *get_full_path(const char *path) {
 }
 
 /**
- * @brief Checks if the given string represents a valid integer.
- * 
- * This function attempts to convert the input string to a long integer using
- * `strtol`. It ensures the string is a valid integer representation by checking
- * for errors such as out-of-range values, invalid characters, or empty strings.
- * 
- * @param str The string to check.
- * @return `true` if the string is a valid integer, `false` otherwise.
- * 
- * @note The function uses `strtol` to convert the string and checks for errors
- * like out-of-range values (`LONG_MAX`, `LONG_MIN`) and invalid characters.
- * It also ensures the string doesn't contain extraneous non-numeric characters.
- */
-bool is_valid_integer(const char *str) {
-    char *endptr;
-    errno = 0;
-
-    long val = strtol(str, &endptr, 10);
-
-    if (errno == ERANGE && (val == LONG_MAX || val == LONG_MIN)) {
-        return false;
-    }
-
-    if (errno != 0 && val == 0) {
-        return false;
-    }
-
-    if (endptr == str) {
-        return false;
-    }
-
-    if (*endptr != '\0') {
-        return false;
-    }
-
-    return true;
-}
-
-/**
  * @brief Converts an array of uint32_t integers to a comma-separated string.
  * 
  * This function takes an array of uint32_t integers and converts it into a string

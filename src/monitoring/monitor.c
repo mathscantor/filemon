@@ -42,7 +42,8 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
             .include_path_pattern = {0},
             .include_path_regex = NULL,
             .exclude_path_pattern = {0},
-            .exclude_path_regex = NULL
+            .exclude_path_regex = NULL,
+            .events = {NULL}
         },
         .comm_cache = {
             .comms = {{0}}
@@ -55,15 +56,29 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     }
 
     //Poppulate the monitor box
-    memcpy(m_box->fanotify_info.mount_path, mount_path, PATH_MAX);
-    memcpy(m_box->filters.include_pids, user_args->oopts_include_pids, sizeof(user_args->oopts_include_pids));
-    memcpy(m_box->filters.exclude_pids, user_args->oopts_exclude_pids, sizeof(user_args->oopts_exclude_pids));
-    memcpy(m_box->filters.include_process, user_args->oopts_include_process, sizeof(user_args->oopts_include_process));
-    memcpy(m_box->filters.exclude_process, user_args->oopts_exclude_process, sizeof(user_args->oopts_exclude_process));
-    memcpy(m_box->filters.include_path_pattern, user_args->oopts_include_path_pattern, sizeof(user_args->oopts_include_path_pattern));
-    m_box->filters.include_path_regex = user_args->oopts_include_path_regex;
-    memcpy(m_box->filters.exclude_path_pattern, user_args->oopts_exclude_path_pattern, sizeof(user_args->oopts_exclude_path_pattern));
-    m_box->filters.exclude_path_regex = user_args->oopts_exclude_path_regex;
+    if (mount_path != NULL)
+        memcpy(m_box->fanotify_info.mount_path, mount_path, PATH_MAX);
+    if (user_args->oopts_include_pids[0] != 0)
+        memcpy(m_box->filters.include_pids, user_args->oopts_include_pids, sizeof(user_args->oopts_include_pids));
+    if (user_args->oopts_exclude_pids[0] != 0)
+        memcpy(m_box->filters.exclude_pids, user_args->oopts_exclude_pids, sizeof(user_args->oopts_exclude_pids));
+    if (user_args->oopts_include_process[0][0] != 0)
+        memcpy(m_box->filters.include_process, user_args->oopts_include_process, sizeof(user_args->oopts_include_process));
+    if (user_args->oopts_exclude_process[0][0] != 0)
+        memcpy(m_box->filters.exclude_process, user_args->oopts_exclude_process, sizeof(user_args->oopts_exclude_process));
+    if (user_args->oopts_include_path_regex != NULL) {
+        memcpy(m_box->filters.include_path_pattern, user_args->oopts_include_path_pattern, sizeof(user_args->oopts_include_path_pattern));
+        m_box->filters.include_path_regex = user_args->oopts_include_path_regex;
+    }
+    if (user_args->oopts_exclude_path_regex != NULL) {
+        memcpy(m_box->filters.exclude_path_pattern, user_args->oopts_exclude_path_pattern, sizeof(user_args->oopts_exclude_path_pattern));
+        m_box->filters.exclude_path_regex = user_args->oopts_exclude_path_regex;
+    }
+    for (size_t i = 0; i < MAX_EVENT_FILTERS; i++) {
+        if (user_args->oopts_events[i] == NULL) 
+            break;
+        m_box->filters.events[i] = strdup(user_args->oopts_events[i]);
+    }
     
     m_box->fanotify_info.read_write_execute.fan_fd = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT, O_RDONLY | O_LARGEFILE);
     if (m_box->fanotify_info.read_write_execute.fan_fd == -1) {
@@ -77,6 +92,40 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     #ifdef FAN_ONDIR
     m_box->fanotify_info.read_write_execute.masks |= FAN_ONDIR;
     #endif
+
+    // Filter according to specified events
+    if (m_box->filters.events[0] != NULL) {
+        for (size_t i = 0; i < MAX_EVENT_FILTERS; i++) {
+            if (m_box->filters.events[i] == NULL)
+                break;
+            if (strcmp(m_box->filters.events[i], "read") == 0) {
+
+                #ifdef FAN_CLOSE_NOWRITE
+                m_box->fanotify_info.read_write_execute.masks |= FAN_CLOSE_NOWRITE;
+                #endif
+
+            } else if (strcmp(m_box->filters.events[i], "write") == 0) {
+
+                #ifdef FAN_CLOSE_WRITE
+                m_box->fanotify_info.read_write_execute.masks |= FAN_CLOSE_WRITE;
+                #endif
+
+                #ifdef FAN_MODIFY
+                m_box->fanotify_info.read_write_execute.masks |= FAN_MODIFY;
+                #endif
+
+            } else if (strcmp(m_box->filters.events[i], "execute") == 0) {
+
+                #ifdef FAN_OPEN_EXEC
+                /* According to fanotify man page - FAN_OPEN_EXEC (since Linux 5.0) */
+                if (is_gte_kernel_version(5, 0, 0))
+                    m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC;
+                #endif
+                
+            }
+        }
+        goto determine_rwe_flags;
+    }
 
     #ifdef FAN_ACCESS
     m_box->fanotify_info.read_write_execute.masks |= FAN_ACCESS;
@@ -120,6 +169,7 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
         #endif
     }
 
+determine_rwe_flags:
     m_box->fanotify_info.read_write_execute.flags = fanotify_helper_determine_flags(m_box->fanotify_info.read_write_execute.fan_fd, 
                                                                                     m_box->fanotify_info.read_write_execute.masks, 
                                                                                     mount_path);
@@ -133,6 +183,45 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     #ifdef FAN_ONDIR
     m_box->fanotify_info.create_delete_move.masks |= FAN_ONDIR;
     #endif
+    
+    // Filter according to specified events
+    if (m_box->filters.events[0] != NULL) {
+        for (size_t i = 0; i < MAX_EVENT_FILTERS; i++) {
+            if (m_box->filters.events[i] == NULL)
+                break;
+            if (strcmp(m_box->filters.events[i], "create") == 0) {
+
+                #ifdef FAN_CREATE
+                /* According to fanotify man page - FAN_CREATE (since Linux 5.1) */
+                if (is_gte_kernel_version(5, 1, 0))
+                    m_box->fanotify_info.create_delete_move.masks |= FAN_CREATE;
+                #endif
+
+            } else if (strcmp(m_box->filters.events[i], "delete") == 0) {
+
+                #ifdef FAN_DELETE
+                /* According to fanotify man page - FAN_DELETE (since Linux 5.1) */
+                if (is_gte_kernel_version(5, 1, 0))
+                    m_box->fanotify_info.create_delete_move.masks |= FAN_DELETE;
+                #endif
+
+            } else if (strcmp(m_box->filters.events[i], "move") == 0) {
+
+                #ifdef FAN_MOVED_TO
+                /* According to fanotify man page - FAN_MOVED_TO (since Linux 5.1) */
+                if (is_gte_kernel_version(5, 1, 0))
+                    m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_TO;
+                #endif
+            
+                #ifdef FAN_ATTRIB
+                /* According to fanotify man page - FAN_ATTRIB (since Linux 5.1) */
+                if (is_gte_kernel_version(5, 1, 0))
+                    m_box->fanotify_info.create_delete_move.masks |= FAN_ATTRIB;
+                #endif
+            }
+        }
+        goto determine_cdm_flags;
+    }
 
     #ifdef FAN_CREATE
     /* According to fanotify man page - FAN_CREATE (since Linux 5.1) */
@@ -170,6 +259,7 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
         m_box->fanotify_info.create_delete_move.masks |= FAN_ATTRIB;
     #endif
 
+determine_cdm_flags:
     m_box->fanotify_info.create_delete_move.flags = fanotify_helper_determine_flags(m_box->fanotify_info.create_delete_move.fan_fd, 
                                                                                     m_box->fanotify_info.create_delete_move.masks, 
                                                                                     mount_path);
