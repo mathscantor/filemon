@@ -29,19 +29,19 @@ $ ARCH=x86 make clean static
 ### Aarch64 Cross-Compilation
 Ensure that the `gcc-aarch64-linux-gnu` package is installed.
 ```bash
-# Compiling an x86 dynamically linked filemon
+# Compiling an aarch64 dynamically linked filemon
 $ ARCH=aarch64 make clean shared
 
-# Compiling an x86 statically linked filemon
+# Compiling an aarch64 statically linked filemon
 $ ARCH=aarch64 make clean static
 ```
 ### ARM (32-bit) Cross-Compilation
 Ensure that the `gcc-arm-linux-gnueabihf` package is installed.
 ```bash
-# Compiling an x86 dynamically linked filemon
+# Compiling an arm32 dynamically linked filemon
 $ ARCH=arm make clean shared
 
-# Compiling an x86 statically linked filemon
+# Compiling an arm32 statically linked filemon
 $ ARCH=arm make clean static
 ```
 
