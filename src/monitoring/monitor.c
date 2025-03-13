@@ -120,6 +120,10 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
                 /* According to fanotify man page - FAN_OPEN_EXEC (since Linux 5.0) */
                 if (is_gte_kernel_version(5, 0, 0))
                     m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC;
+                else {
+                    log_message(ERROR, __func__, "FAN_OPEN_EXEC mask is not supported in your current kernel version!");
+                    exit(EXIT_FAILURE);
+                }
                 #endif
 
             }
@@ -195,6 +199,10 @@ determine_rwe_flags:
                 /* According to fanotify man page - FAN_CREATE (since Linux 5.1) */
                 if (is_gte_kernel_version(5, 1, 0))
                     m_box->fanotify_info.create_delete_move.masks |= FAN_CREATE;
+                else {
+                    log_message(ERROR, __func__, "FAN_CREATE mask is not supported in your current kernel version!");
+                    exit(EXIT_FAILURE);
+                }
                 #endif
 
             } else if (strcmp(m_box->filters.events[i], "delete") == 0) {
@@ -203,6 +211,10 @@ determine_rwe_flags:
                 /* According to fanotify man page - FAN_DELETE (since Linux 5.1) */
                 if (is_gte_kernel_version(5, 1, 0))
                     m_box->fanotify_info.create_delete_move.masks |= FAN_DELETE;
+                else {
+                    log_message(ERROR, __func__, "FAN_DELETE mask is not supported in your current kernel version!");
+                    exit(EXIT_FAILURE);
+                }
                 #endif
 
             } else if (strcmp(m_box->filters.events[i], "move") == 0) {
@@ -211,12 +223,20 @@ determine_rwe_flags:
                 /* According to fanotify man page - FAN_MOVED_FROM (since Linux 5.1) */
                 if (is_gte_kernel_version(5, 1, 0))
                     m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_FROM;
+                else  {
+                    log_message(ERROR, __func__, "FAN_MOVED_FROM mask is not supported in your current kernel version!");
+                    exit(EXIT_FAILURE);
+                }
                 #endif
 
                 #ifdef FAN_MOVED_TO
                 /* According to fanotify man page - FAN_MOVED_TO (since Linux 5.1) */
                 if (is_gte_kernel_version(5, 1, 0))
                     m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_TO;
+                else  {
+                    log_message(ERROR, __func__, "FAN_MOVED_TO mask is not supported in your current kernel version!");
+                    exit(EXIT_FAILURE);
+                }
                 #endif
         
             }
