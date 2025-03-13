@@ -1,3 +1,6 @@
+#ifndef FILEMON_H
+#define FILEMON_H
+
 #define FILEMON_VERSION_MAJOR 1
 #define FILEMON_VERSION_MINOR 1
 #define FILEMON_VERSION_PATCH 1
@@ -9,3 +12,5 @@
 
 #define STRINGIFY(x) _STRINGIFY(x)
 #define _STRINGIFY(x) #x
+
+#endif
