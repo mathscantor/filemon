@@ -79,11 +79,6 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
             break;
         m_box->filters.events[i] = strdup(user_args->oopts_events[i]);
     }
-    
-    m_box->fanotify_info.read_write_execute.fan_fd = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT, O_RDONLY | O_LARGEFILE);
-    if (m_box->fanotify_info.read_write_execute.fan_fd == -1) {
-        return;
-    }
 
     #ifdef FAN_EVENT_ON_CHILD
     m_box->fanotify_info.read_write_execute.masks |= FAN_EVENT_ON_CHILD;
@@ -174,15 +169,15 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
     }
 
 determine_rwe_flags:
+    m_box->fanotify_info.read_write_execute.fan_fd = fanotify_init(FAN_CLOEXEC | FAN_CLASS_CONTENT, O_RDONLY | O_LARGEFILE);
+    if (m_box->fanotify_info.read_write_execute.fan_fd == -1) {
+        return;
+    }
     m_box->fanotify_info.read_write_execute.flags = fanotify_helper_determine_flags(m_box->fanotify_info.read_write_execute.fan_fd, 
                                                                                     m_box->fanotify_info.read_write_execute.masks, 
                                                                                     mount_path);
 
     #ifdef FAN_REPORT_DFID_NAME
-    m_box->fanotify_info.create_delete_move.fan_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
-    if (m_box->fanotify_info.create_delete_move.fan_fd  == -1) {
-        return;
-    }
     
     #ifdef FAN_ONDIR
     m_box->fanotify_info.create_delete_move.masks |= FAN_ONDIR;
@@ -281,6 +276,10 @@ determine_rwe_flags:
     #endif
 
 determine_cdm_flags:
+    m_box->fanotify_info.create_delete_move.fan_fd = fanotify_init(FAN_CLASS_NOTIF | FAN_REPORT_DFID_NAME, O_RDWR);
+    if (m_box->fanotify_info.create_delete_move.fan_fd  == -1) {
+        return;
+    }
     m_box->fanotify_info.create_delete_move.flags = fanotify_helper_determine_flags(m_box->fanotify_info.create_delete_move.fan_fd, 
                                                                                     m_box->fanotify_info.create_delete_move.masks, 
                                                                                     mount_path);
