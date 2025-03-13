@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "../filemon.h"
 
 /**
  * @brief Parses command-line arguments and returns a structured representation.
@@ -61,7 +62,7 @@ user_args_t parse_args(int argc, char *argv[]) {
                 user_args.oopts_verbose = 2; 
                 break;
             case 'V':
-                printf("filemon v%d.%d.%d\n", FILEMON_VER_MAJOR, FILEMON_VER_MINOR, FILEMON_VER_PATCH);
+                printf("filemon %s\n", FILEMON_VERSION_STR);
                 exit(EXIT_SUCCESS);
                 break;
             case 'm':

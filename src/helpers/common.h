@@ -28,10 +28,6 @@
 #define MAX_PROCESS_NAME_LEN 16
 #define MAX_COMM_CACHE_SIZE 1024
 
-#define FILEMON_VER_MAJOR 1
-#define FILEMON_VER_MINOR 1
-#define FILEMON_VER_PATCH 0
-
 typedef struct {
     char comms[MAX_COMM_CACHE_SIZE][MAX_PROCESS_NAME_LEN];
 } comm_cache_t;

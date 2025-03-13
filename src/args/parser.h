@@ -6,6 +6,7 @@
 #include <regex.h>
 #include <stdint.h>
 
+#include "../filemon.h"
 #include "../helpers/common.h"
 #include "../helpers/mount.h"
 #include "../helpers/fanotify.h"
