@@ -121,7 +121,7 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
                 if (is_gte_kernel_version(5, 0, 0))
                     m_box->fanotify_info.read_write_execute.masks |= FAN_OPEN_EXEC;
                 #endif
-                
+
             }
         }
         goto determine_rwe_flags;
@@ -207,17 +207,18 @@ determine_rwe_flags:
 
             } else if (strcmp(m_box->filters.events[i], "move") == 0) {
 
+                #ifdef FAN_MOVED_FROM
+                /* According to fanotify man page - FAN_MOVED_FROM (since Linux 5.1) */
+                if (is_gte_kernel_version(5, 1, 0))
+                    m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_FROM;
+                #endif
+
                 #ifdef FAN_MOVED_TO
                 /* According to fanotify man page - FAN_MOVED_TO (since Linux 5.1) */
                 if (is_gte_kernel_version(5, 1, 0))
                     m_box->fanotify_info.create_delete_move.masks |= FAN_MOVED_TO;
                 #endif
-            
-                #ifdef FAN_ATTRIB
-                /* According to fanotify man page - FAN_ATTRIB (since Linux 5.1) */
-                if (is_gte_kernel_version(5, 1, 0))
-                    m_box->fanotify_info.create_delete_move.masks |= FAN_ATTRIB;
-                #endif
+        
             }
         }
         goto determine_cdm_flags;
