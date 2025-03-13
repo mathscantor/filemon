@@ -8,18 +8,43 @@ Filemon is a multithreaded file/directory monitoring tool, designed specifically
 
 
 ## Compilation
+By default, the Makefile assumes you will be compiling on an x86_64 linux machine. A successfully built Filemon will be generated in **build/filemon**. Alternatively, you may get the static binaries for different architectures from the [latest release](https://github.com/mathscantor/filemon/releases/latest).
 
-To compile filemon, simply run the following command:
-
+### x86_64
 ```bash
-# By default, filemon will be a dynamically linked binary. (all / shared)
-$ make clean all
+# Compiling an x86_64 dynamically linked filemon
+$ make clean shared
 
-# Alternatively, you may want to compile a static version of filemon.
+# Compiling an x86_64 statically linked filemon
 $ make clean static
 ```
+### x86
+```bash
+# Compiling an x86 dynamically linked filemon
+$ ARCH=x86 make clean shared
 
-A successfully built Filemon will be generated in **build/filemon**.
+# Compiling an x86 statically linked filemon
+$ ARCH=x86 make clean static
+```
+### Aarch64 Cross-Compilation
+Ensure that the `gcc-aarch64-linux-gnu` package is installed.
+```bash
+# Compiling an x86 dynamically linked filemon
+$ ARCH=aarch64 make clean shared
+
+# Compiling an x86 statically linked filemon
+$ ARCH=aarch64 make clean static
+```
+### ARM (32-bit) Cross-Compilation
+Ensure that the `gcc-arm-linux-gnueabihf` package is installed.
+```bash
+# Compiling an x86 dynamically linked filemon
+$ ARCH=arm make clean shared
+
+# Compiling an x86 statically linked filemon
+$ ARCH=arm make clean static
+```
+
 
 ## Usage
 
