@@ -383,43 +383,56 @@ bool is_in_process_names(char haystack[][MAX_PROCESS_NAME_LEN], size_t size, cha
 }
 
 /**
- * @brief Checks if the current kernel version is greater than or equal to a specified version.
+ * @brief Compares the current kernel version with a specified version.
  * 
- * This function retrieves the current kernel version using `uname` and compares it 
- * to the provided major, minor, and patch version. It returns `true` if the current 
- * kernel version is greater than or equal to the specified version, and `false` otherwise.
+ * This function retrieves the current kernel version using `uname` and parses it 
+ * in the format `w.xx.y-zzz` (e.g., `4.4.0-45` where `w=4`, `xx=4`, `y=0`, `zzz=45`). 
+ * It then compares the parsed version with the specified version components 
+ * (kernel version, major revision, minor revision, and patch number).
  * 
- * @param major_version The major version of the kernel to compare against.
- * @param minor_version The minor version of the kernel to compare against.
- * @param patch_version The patch version of the kernel to compare against.
+ * @param kernel_version The kernel version (`w`) to compare against.
+ * @param major_revision The major revision (`xx`) to compare against.
+ * @param minor_revision The minor revision (`y`) to compare against.
+ * @param patch_number The patch number (`zzz`) to compare against.
  * @return `true` if the current kernel version is greater than or equal to the specified version, 
  *         `false` otherwise.
+ * 
+ * @note If the kernel version cannot be retrieved or parsed, the function logs a warning 
+ *       and returns `false`.
  */
-bool is_gte_kernel_version(int major_version, int minor_version, int patch_version) {
+bool is_gte_kernel_version(int kernel_version, int major_revision, int minor_revision, int patch_number) {
     struct utsname buffer;
-    
+
+    // Retrieve the kernel version using uname
     if (uname(&buffer) != 0) {
         log_message(WARNING, __func__, "Unable to retrieve kernel version! Fanotify masks may be inaccurate!");
-        return false; 
+        return false;
     }
 
-    int major, minor, patch;
-    if (sscanf(buffer.release, "%d.%d.%d", &major, &minor, &patch) != 3) {
+    int w = 0, xx = 0, y = 0, zzz = 0;
+
+    // Parse the kernel version in the format w.xx.y-zzz
+    if (sscanf(buffer.release, "%d.%d.%d-%d", &w, &xx, &y, &zzz) < 4) {
         log_message(WARNING, __func__, "Unable to parse kernel version! Fanotify masks may be inaccurate!");
-        return false; 
+        return false;
     }
 
-    if (major > major_version) {
-        return true;  // Current kernel is newer
-    } else if (major == major_version) {
-        if (minor > minor_version) {
-            return true;  // Current kernel is newer
-        } else if (minor == minor_version) {
-            if (patch >= patch_version) {
-                return true;  // Current kernel is newer or equal
+    // Compare the parsed kernel version with the specified version
+    if (w > kernel_version) {
+        return true; 
+    } else if (w == kernel_version) {
+        if (xx > major_revision) {
+            return true;  
+        } else if (xx == major_revision) {
+            if (y > minor_revision) {
+                return true;  
+            } else if (y == minor_revision) {
+                if (zzz >= patch_number) {
+                    return true;  
+                }
             }
         }
     }
 
-    return false;  // Current kernel is older
+    return false;
 }

@@ -45,6 +45,6 @@ char *uint32_array_to_string(const uint32_t *, size_t) ;
 bool is_in_uint32_array(uint32_t *, size_t , uint32_t);
 char *concatenate_process_names(char [][MAX_PROCESS_NAME_LEN], size_t);
 bool is_in_process_names(char [][MAX_PROCESS_NAME_LEN], size_t, char *);
-bool is_gte_kernel_version(int, int, int);
+bool is_gte_kernel_version(int, int, int, int);
 
 #endif
