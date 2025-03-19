@@ -1,7 +1,10 @@
 #include "monitor.h"
 
 bool g_monitor_force_stop = false;
+
 pthread_mutex_t g_log_mutex;
+pthread_t *monitoring_threads = NULL;
+size_t num_running_threads = 0;
 
 /**
  * @brief Initializes the monitor box with the provided arguments.
@@ -283,7 +286,7 @@ determine_cdm_flags:
     m_box->fanotify_info.create_delete_move.flags = fanotify_helper_determine_flags(m_box->fanotify_info.create_delete_move.fan_fd, 
                                                                                     m_box->fanotify_info.create_delete_move.masks, 
                                                                                     mount_path);
-    #endif  
+    #endif
     return;
 }
 
@@ -301,10 +304,9 @@ determine_cdm_flags:
 void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
 
     int ret;
-    size_t num_running_threads = 0;
 
     pthread_mutex_init(&g_log_mutex, NULL);
-    pthread_t *monitoring_threads = (pthread_t *)malloc(num_boxes * 2 * sizeof(pthread_t));
+    monitoring_threads = (pthread_t *)malloc(num_boxes * 2 * sizeof(pthread_t));
     for (size_t i = 0; i < num_boxes; i++) {
         print_box(m_boxes[i], i);
         thread_arg_t args = { .m_box = m_boxes[i] };
@@ -702,10 +704,17 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
     log_message(INFO, __func__, "Stopping filemon...");
 
     pthread_mutex_destroy(&g_log_mutex);
+    for (size_t i = 0; i < num_running_threads; i++) {
+        pthread_cancel(monitoring_threads[i]);
+    }
+    SAFE_FREE(monitoring_threads);
+
     for (size_t i = 0; i < num_boxes; i++) {
         fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, FAN_MARK_FLUSH, 0, 0, NULL);
         SAFE_FREE(m_boxes[i]);
     }
+    SAFE_FREE(m_boxes);
+
     if (g_logger.log_file.f) {
         printf("[+] Successfully stopped filemon.\n");
         printf("[+] To view the logs: less -R \"%s\"\n", g_logger.log_file.fullpath);

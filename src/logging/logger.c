@@ -133,8 +133,7 @@ stdout_format:
     va_end(args);
 
     printf("\n");
-    free(current_datetime);
-    current_datetime = NULL;
+    SAFE_FREE(current_datetime);
     return;
 
 txt_format:
@@ -148,8 +147,7 @@ txt_format:
 
     fprintf(g_logger.log_file.f, "\n");
     fflush(g_logger.log_file.f);
-    free(current_datetime);
-    current_datetime = NULL;
+    SAFE_FREE(current_datetime);
     return;
 
 csv_format:
@@ -165,8 +163,7 @@ csv_format:
 
     fprintf(g_logger.log_file.f, "\n");
     fflush(g_logger.log_file.f);
-    free(current_datetime);
-    current_datetime = NULL;
+    SAFE_FREE(current_datetime);
     return;
 
 json_format:
@@ -183,8 +180,7 @@ json_format:
     fprintf(g_logger.log_file.f, "\"\n"); // Closing the message value
     fprintf(g_logger.log_file.f, "}\n");  // Closing the JSON object
     fflush(g_logger.log_file.f);
-    free(current_datetime);
-    current_datetime = NULL;
+    SAFE_FREE(current_datetime);
     return;
 
 jsonl_format:
@@ -200,8 +196,7 @@ jsonl_format:
 
     fprintf(g_logger.log_file.f, "\"}\n");
     fflush(g_logger.log_file.f);
-    free(current_datetime);
-    current_datetime = NULL;
+    SAFE_FREE(current_datetime);
     return;
 
 }

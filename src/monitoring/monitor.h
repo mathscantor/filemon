@@ -46,7 +46,6 @@ typedef struct {
 } thread_arg_t;
 
 extern bool g_monitor_force_stop;
-extern pthread_mutex_t g_log_mutex;
 
 void init_monitor_box(monitor_box_t *,user_args_t *, char *);
 void begin_monitor(monitor_box_t **, size_t);

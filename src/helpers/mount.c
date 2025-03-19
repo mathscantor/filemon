@@ -58,7 +58,11 @@ char **get_all_mount_points(size_t *num_mounts) {
         mount_points[*num_mounts] = strdup(mount_point);
         if (!mount_points[*num_mounts]) {
             log_message(ERROR, __func__, " Unable to strdup mount path!");
-            break;
+            free_mount_points(mount_points, *num_mounts);
+            SAFE_FREE(mount_points);
+            fclose(fp);
+            *num_mounts = 0;
+            return NULL;
         }
         (*num_mounts)++;
         if (*num_mounts >= OS_MAX_MOUNT_POINTS) {

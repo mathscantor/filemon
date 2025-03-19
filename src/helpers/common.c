@@ -19,10 +19,14 @@ char *get_path_from_fd(int fd) {
     char *filepath = (char *)malloc(PATH_MAX);
     char *fd_path = (char *)malloc(PATH_MAX);
     if (fd <= 0) {
+        SAFE_FREE(filepath);
+        SAFE_FREE(fd_path);
         return NULL;
     }
     snprintf(fd_path, PATH_MAX, "/proc/self/fd/%d", fd);
     if ((len = readlink(fd_path, filepath, PATH_MAX - 1)) < 0) {
+        SAFE_FREE(filepath);
+        SAFE_FREE(fd_path);
         return NULL;
     }
     filepath[len] = '\0';
@@ -67,21 +71,25 @@ char *get_comm_from_pid(uint32_t pid){
     if (comm == NULL) {
         // log_message(WARNING, __func__, "Unable to allocate %d bytes to comm!", MAX_PROCESS_NAME_LEN);
         SAFE_FREE(comm_path);
+        fclose(comm_file);
         return NULL;
     }
 
     if (fgets(comm, 16, comm_file)) {
         comm[strcspn(comm, "\n")] = '\0';
     }
-    close(fileno(comm_file));
+    fclose(comm_file);
+    
     if (comm[0] == '\0' || comm[0] == ' ') {
         SAFE_FREE(comm_path);
+        SAFE_FREE(comm);
         return NULL;
     }
 
     for (size_t i = 0; i < MAX_PROCESS_NAME_LEN; i++){
         if (comm[i] != '\0' && !is_printable_ascii(comm[i])) {
             SAFE_FREE(comm_path);
+            SAFE_FREE(comm);
             return NULL;
         }
     }
