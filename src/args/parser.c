@@ -229,7 +229,7 @@ user_args_t parse_args(int argc, char *argv[]) {
                 for (size_t i = 0; i < MAX_EVENT_FILTERS; i++){
                     if (token == NULL) break;
                     if (!is_valid_event(token)) {
-                        log_message(ERROR, __func__, "-%c option: Not a valid event! Allowed events: [\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]");
+                        log_message(ERROR, __func__, "-%c option: Not a valid event! Allowed events: [\"read\", \"write\", \"execute\", \"create\", \"delete\", \"move\"]", opt);
                         exit(EXIT_FAILURE);
                     }
                     user_args.oopts_events[i] = strdup(token);
