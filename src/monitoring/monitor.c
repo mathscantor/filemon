@@ -1,5 +1,9 @@
 #include "monitor.h"
 
+#include <limits.h>
+#include <string.h>
+#include <stdio.h>
+
 bool g_monitor_force_stop = false;
 
 pthread_mutex_t g_log_mutex;
@@ -52,6 +56,8 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
         .comm_cache = {
             .comms = {{0}}
         }
+        , .mount_dev = 0
+        , .mount_dev_valid = false
     };
 
     if (!m_box->fanotify_info.is_config_fanotify_enabled) {
@@ -59,9 +65,9 @@ void init_monitor_box(monitor_box_t *m_box, user_args_t *user_args, char *mount_
         return;
     }
 
-    //Poppulate the monitor box
+    // Populate the monitor box
     if (mount_path != NULL)
-        memcpy(m_box->fanotify_info.mount_path, mount_path, PATH_MAX);
+        snprintf(m_box->fanotify_info.mount_path, PATH_MAX, "%s", mount_path);
     if (user_args->oopts_include_pids[0] != 0)
         memcpy(m_box->filters.include_pids, user_args->oopts_include_pids, sizeof(user_args->oopts_include_pids));
     if (user_args->oopts_exclude_pids[0] != 0)
@@ -407,6 +413,60 @@ void *handle_rwe_events_thread(void* arg) {
     return NULL;
 }
 
+/*
+ * Helper: determine whether `path` belongs to the monitored mount represented by m_box.
+ * Strategy: try realpath prefix comparison; if that fails, fall back to comparing st_dev.
+ */
+static bool is_path_on_monitored_mount(monitor_box_t *m_box, const char *path) {
+    if (m_box == NULL || path == NULL) return false;
+
+    char real_path[PATH_MAX];
+    char real_mount[PATH_MAX];
+    if (realpath(path, real_path) != NULL && realpath(m_box->fanotify_info.mount_path, real_mount) != NULL) {
+        size_t mlen = strlen(real_mount);
+        if (mlen > 1 && real_mount[mlen - 1] == '/') mlen--;
+        if (strncmp(real_path, real_mount, mlen) != 0) return false;
+        if (real_path[mlen] == '\0' || real_path[mlen] == '/') return true;
+        return false;
+    }
+
+    struct stat s_path;
+    if (stat(path, &s_path) != 0) {
+        if (errno == ENOENT) {
+            /* File no longer exists (delete events). Stat the parent directory instead. */
+            char parent[PATH_MAX];
+            strncpy(parent, path, PATH_MAX);
+            parent[PATH_MAX - 1] = '\0';
+            char *p = strrchr(parent, '/');
+            if (p == NULL) {
+                /* No slash? treat as root */
+                strncpy(parent, "/", PATH_MAX);
+            } else if (p == parent) {
+                /* Parent is root */
+                parent[1] = '\0';
+            } else {
+                *p = '\0';
+            }
+            if (stat(parent, &s_path) != 0) return false;
+
+        } else {
+            return false;
+        }
+    }
+
+    if (!m_box->mount_dev_valid) {
+        struct stat s_mount;
+        if (stat(m_box->fanotify_info.mount_path, &s_mount) == 0) {
+            m_box->mount_dev = s_mount.st_dev;
+            m_box->mount_dev_valid = true;
+        } else {
+            return false;
+        }
+    }
+
+    return (s_path.st_dev == m_box->mount_dev);
+}
+
 /**
  * @brief Processes read, write, and execute events from fanotify and applies filters.
  * 
@@ -471,6 +531,9 @@ write_fanotify_response:
 
             // Ignore if full_path is NULL
             if (full_path == NULL) goto next_event;
+
+            /* Ignore events that are not on the monitored mount */
+            if (!is_path_on_monitored_mount(m_box, full_path)) goto next_event;
 
             // Ignore self
             if (metadata->pid == getpid()) goto next_event;
@@ -643,6 +706,8 @@ void handle_cdm_events(monitor_box_t* m_box) {
                 snprintf(full_path, PATH_MAX, "%s", path);
             }
 
+            /* Ignore events that are not on the monitored mount */
+            if (!is_path_on_monitored_mount(m_box, full_path)) goto next_event;
             // Ignore self
             if (metadata->pid == getpid()) goto next_event;
 

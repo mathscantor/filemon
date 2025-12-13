@@ -39,6 +39,8 @@ typedef struct {
     fanotify_info_t fanotify_info;
     filters_t filters;
     comm_cache_t comm_cache;
+    dev_t mount_dev;
+    bool mount_dev_valid;
 } monitor_box_t;
 
 typedef struct {

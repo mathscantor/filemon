@@ -92,19 +92,21 @@ uint32_t fanotify_helper_determine_flags(int fan_fd, uint64_t masks, char *mount
 
     uint32_t flags;
 
+    flags = FAN_MARK_ADD | FAN_MARK_MOUNT;
+    if (fanotify_mark(fan_fd, flags, masks, AT_FDCWD, mount_path) == 0) {
+        log_message(DEBUG, __func__, "fd %d Using FAN_MARK_MOUNT for fanotify marking.", fan_fd);
+        fanotify_mark(fan_fd, FAN_MARK_FLUSH | FAN_MARK_MOUNT, 0, 0, NULL);
+        return flags;
+    }
+
     #ifdef FAN_MARK_FILESYSTEM
     flags = FAN_MARK_ADD | FAN_MARK_FILESYSTEM;
     if (fanotify_mark(fan_fd, flags, masks, AT_FDCWD, mount_path) == 0) {
+        log_message(DEBUG, __func__, "fd %d Using FAN_MARK_FILESYSTEM for fanotify marking.", fan_fd);
         fanotify_mark(fan_fd, FAN_MARK_FLUSH | FAN_MARK_FILESYSTEM, 0, 0, NULL);
         return flags;
     } 
     #endif
-
-    flags = FAN_MARK_ADD | FAN_MARK_MOUNT;
-    if (fanotify_mark(fan_fd, flags, masks, AT_FDCWD, mount_path) == 0) {
-        fanotify_mark(fan_fd, FAN_MARK_FLUSH | FAN_MARK_MOUNT, 0, 0, NULL);
-        return flags;
-    }
 
     return 0;
 }
