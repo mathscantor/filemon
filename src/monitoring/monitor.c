@@ -425,8 +425,7 @@ static bool is_path_on_monitored_mount(monitor_box_t *m_box, const char *path) {
     if (realpath(path, real_path) != NULL && realpath(m_box->fanotify_info.mount_path, real_mount) != NULL) {
         size_t mlen = strlen(real_mount);
         if (mlen > 1 && real_mount[mlen - 1] == '/') mlen--;
-        if (strncmp(real_path, real_mount, mlen) != 0) return false;
-        if (real_path[mlen] == '\0' || real_path[mlen] == '/') return true;
+        if (strncmp(real_path, real_mount, mlen) == 0) return true;
         return false;
     }
 
