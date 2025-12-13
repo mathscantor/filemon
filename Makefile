@@ -1,7 +1,8 @@
 # Variables
 CC := gcc
 ARCH ?= x86_64  # Default architecture
-CFLAGS := -Wall -Wextra -Wformat -Wformat-overflow -I./src -Iinclude -pthread -lz
+CFLAGS := -Wall -Wextra -Wformat -Wformat-overflow -I./src -Iinclude -pthread
+LDFLAGS := -lz
 SRC_DIR := src
 BUILD_DIR := build
 TARGET := $(BUILD_DIR)/filemon
@@ -44,11 +45,11 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 
 # Link the shared binary
 shared: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET)
+	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) $(LDFLAGS)
 
 # Link the static binary
 static: $(OBJS)
-	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) -static
+	$(CC) $(CFLAGS) $(OBJS) -o $(TARGET) -static $(LDFLAGS)
 
 # Clean up
 clean:
