@@ -3,8 +3,9 @@
 bool g_monitor_force_stop = false;
 
 pthread_mutex_t g_log_mutex;
-pthread_t *monitoring_threads = NULL;
-size_t num_running_threads = 0;
+pthread_t *g_monitoring_threads = NULL;
+thread_arg_t *g_monitoring_thread_args = NULL;
+size_t g_num_running_threads = 0;
 
 /**
  * @brief Initializes the monitor box with the provided arguments.
@@ -306,10 +307,15 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
     int ret;
 
     pthread_mutex_init(&g_log_mutex, NULL);
-    monitoring_threads = (pthread_t *)malloc(num_boxes * 2 * sizeof(pthread_t));
+
+    /* prepare arrays for thread ids and per-thread args */
+    size_t max_threads = num_boxes * 2;
+    g_monitoring_threads = (pthread_t *)malloc(max_threads * sizeof(pthread_t));
+    g_monitoring_thread_args = (thread_arg_t *)malloc(max_threads * sizeof(thread_arg_t));
+    g_num_running_threads = 0;
+
     for (size_t i = 0; i < num_boxes; i++) {
         print_box(m_boxes[i], i);
-        thread_arg_t args = { .m_box = m_boxes[i] };
 
         ret = fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, 
             m_boxes[i]->fanotify_info.read_write_execute.flags, 
@@ -318,10 +324,11 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
             m_boxes[i]->fanotify_info.mount_path);
         if (ret == 0) {
             log_message(DEBUG, __func__, "Spawning thread to monitor read/write/execute events on \"%s\" mount...", m_boxes[i]->fanotify_info.mount_path);
-            if (pthread_create(&monitoring_threads[i], NULL, handle_rwe_events_thread, &args) != 0) {
+            g_monitoring_thread_args[g_num_running_threads].m_box = m_boxes[i];
+            if (pthread_create(&g_monitoring_threads[g_num_running_threads], NULL, handle_rwe_events_thread, &g_monitoring_thread_args[g_num_running_threads]) != 0) {
                 log_message(WARNING, __func__, "Unable to create thread to monitor read/write/execute events on \"%s\" mount", m_boxes[i]->fanotify_info.mount_path);
             } else {
-                num_running_threads++;
+                g_num_running_threads++;
             }
         } else {
             log_message(WARNING, __func__, "Unable to fanotify_mark with read/write/execute masks on \"%s\" mount!", m_boxes[i]->fanotify_info.mount_path);
@@ -335,10 +342,11 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
             m_boxes[i]->fanotify_info.mount_path);
         if (ret == 0) {
             log_message(DEBUG, __func__, "Spawning thread to monitor create/delete/move events on \"%s\" mount...", m_boxes[i]->fanotify_info.mount_path);
-            if (pthread_create(&monitoring_threads[i + 1], NULL, handle_cdm_events_thread, &args) != 0) {
+            g_monitoring_thread_args[g_num_running_threads].m_box = m_boxes[i];
+            if (pthread_create(&g_monitoring_threads[g_num_running_threads], NULL, handle_cdm_events_thread, &g_monitoring_thread_args[g_num_running_threads]) != 0) {
                 log_message(WARNING, __func__, "Unable to create thread to monitor create/delete/move events on \"%s\" mount", m_boxes[i]->fanotify_info.mount_path);
             } else {
-                num_running_threads++;
+                g_num_running_threads++;
             }
         } else {
             log_message(WARNING, __func__, "Unable to fanotify_mark with create/delete/move masks on \"%s\" mount!", m_boxes[i]->fanotify_info.mount_path);
@@ -351,10 +359,10 @@ void begin_monitor(monitor_box_t **m_boxes, size_t num_boxes) {
         printf("[+] All output is redirected to \"%s\"\n", g_logger.log_file.fullpath);
     }
 
-    if (num_running_threads > 0) {
-        log_message(INFO, __func__, "Successfully started filemon (Monitoring threads: %lu).", num_running_threads);
-        for (size_t i = 0; i < num_running_threads; i++) {
-            pthread_join(monitoring_threads[i], NULL);
+    if (g_num_running_threads > 0) {
+        log_message(INFO, __func__, "Successfully started filemon (Monitoring threads: %lu).", g_num_running_threads);
+        for (size_t i = 0; i < g_num_running_threads; i++) {
+            pthread_join(g_monitoring_threads[i], NULL);
         }
     }
     else {
@@ -707,11 +715,16 @@ void stop_monitor(monitor_box_t **m_boxes, size_t num_boxes){
     }
     log_message(INFO, __func__, "Stopping filemon...");
 
-    pthread_mutex_destroy(&g_log_mutex);
-    for (size_t i = 0; i < num_running_threads; i++) {
-        pthread_cancel(monitoring_threads[i]);
+    /* Cancel and join monitoring threads, then destroy mutex */
+    for (size_t i = 0; i < g_num_running_threads; i++) {
+        pthread_cancel(g_monitoring_threads[i]);
     }
-    SAFE_FREE(monitoring_threads);
+    for (size_t i = 0; i < g_num_running_threads; i++) {
+        pthread_join(g_monitoring_threads[i], NULL);
+    }
+    SAFE_FREE(g_monitoring_threads);
+    SAFE_FREE(g_monitoring_thread_args);
+    pthread_mutex_destroy(&g_log_mutex);
 
     for (size_t i = 0; i < num_boxes; i++) {
         fanotify_mark(m_boxes[i]->fanotify_info.read_write_execute.fan_fd, FAN_MARK_FLUSH, 0, 0, NULL);
