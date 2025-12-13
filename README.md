@@ -10,6 +10,16 @@ Filemon is a multithreaded file/directory monitoring tool, designed specifically
 ## Compilation
 By default, the Makefile assumes you will be compiling on an x86_64 linux machine. A successfully built Filemon will be generated in **build/filemon**. Alternatively, you may get the static binaries for different architectures from the [latest release](https://github.com/mathscantor/filemon/releases/latest).
 
+### Dependencies
+```bash
+# RedHat-based: Fedora, Oracle Linux, etc
+$ sudo dnf install zlib-devel
+
+# Debian-based: Ubuntu, etc
+$ sudo apt-get install libz-dev
+```
+
+
 ### x86_64
 ```bash
 # Compiling an x86_64 dynamically linked filemon
