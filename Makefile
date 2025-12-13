@@ -1,7 +1,7 @@
 # Variables
 CC := gcc
 ARCH ?= x86_64  # Default architecture
-CFLAGS := -Wall -Wextra -Wformat -Wformat-overflow -I./src -Iinclude -pthread
+CFLAGS := -Wall -Wextra -Wformat -Wformat-overflow -I./src -Iinclude -pthread -lz
 SRC_DIR := src
 BUILD_DIR := build
 TARGET := $(BUILD_DIR)/filemon

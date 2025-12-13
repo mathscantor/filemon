@@ -14,6 +14,7 @@
 #include <sys/types.h>
 #include <regex.h>
 #include <stdbool.h>
+#include <zlib.h>
 #include <sys/inotify.h>
 
 #include "common.h"
@@ -38,6 +39,7 @@ typedef struct {
     char mount_path[PATH_MAX];
 } fanotify_info_t;
 
+bool search_kernel_config(const char *);
 bool has_config_fanotify(void);
 bool has_config_fanotify_access_perms(void);
 uint32_t fanotify_helper_determine_flags(int, uint64_t, char *);

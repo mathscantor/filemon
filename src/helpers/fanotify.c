@@ -1,93 +1,77 @@
 #include "fanotify.h"
 
+ /**
+ * @brief Checks if the kernel configuration contains a certain string.
+ * 
+ * Read the kernel configuration file (`/boot/config-<kernel_version>` or `/proc/config.gz`)
+ * and search for string. It returns `true` if found, and `false` otherwise. 
+ * The kernel version is obtained using `uname`.
+ * @return true if the kernel has FANOTIFY support enabled.
+ * @return false if the kernel does not have FANOTIFY support enabled or an error occurs.
+ */
+bool search_kernel_config(const char *search_str) {
+    struct utsname uname_data;
+    FILE *file;
+    gzFile gzfile;
+    char filepath[256];
+    char line[256];
+
+    if (uname(&uname_data) != 0) {
+        log_message(ERROR, __func__, "Unable to get kernel version via uname.");
+        return false;
+    }
+
+    snprintf(filepath, sizeof(filepath), "/boot/config-%s", uname_data.release);
+    if (access(filepath, F_OK) == 0) {
+        file = fopen(filepath, "r");
+        if (file == NULL) {
+            log_message(ERROR, __func__, "Unable to open: \"/boot/config-%s\"", uname_data.release);
+            return false;
+        }
+        while (fgets(line, sizeof(line), file)) {
+            if (strncmp(line, search_str, strlen(search_str)) == 0) {
+                fclose(file);
+                return true;
+            }
+        }
+        fclose(file);
+    } else if (access("/proc/config.gz", F_OK) == 0) {
+        gzfile = gzopen("/proc/config.gz", "r");
+        if (!gzfile) {
+            log_message(ERROR, __func__, "Unable to open: \"/proc/config.gz\"");
+            return false;
+        }
+        while (gzgets(gzfile, line, sizeof(line))) {
+            if (strncmp(line, search_str, strlen(search_str)) == 0) {
+                gzclose(gzfile);
+                return true;
+            }
+        }
+        gzclose(gzfile);
+    } else {
+        log_message(ERROR, __func__, "Unable to determine fanotify capabilities! (No config under /boot or /proc)");
+    }
+    return false;
+}
+
 /**
  * @brief Checks if the kernel is configured with FANOTIFY support.
- * 
- * This function attempts to check if the kernel has FANOTIFY support enabled by reading 
- * the kernel configuration file (`/boot/config-<kernel_version>`) and searching for 
- * the `CONFIG_FANOTIFY=y` string. It returns `true` if FANOTIFY support is enabled, 
- * and `false` otherwise. The kernel version is obtained using `uname`.
  * 
  * @return true if the kernel has FANOTIFY support enabled.
  * @return false if the kernel does not have FANOTIFY support enabled or an error occurs.
  */
 bool has_config_fanotify(void) {
-    struct utsname uname_data;
-    FILE *file;
-    char filepath[256];
-    char line[256];
-    const char *search_str = "CONFIG_FANOTIFY=y";
-
-    // Get the kernel version
-    if (uname(&uname_data) != 0) {
-        log_message(ERROR, __func__, "Unable to get kernel version via uname.");
-        return false;
-    }
-
-    // Construct the file path
-    snprintf(filepath, sizeof(filepath), "/boot/config-%s", uname_data.release);
-
-    // Open the file for reading
-    file = fopen(filepath, "r");
-    if (file == NULL) {
-        log_message(ERROR, __func__, "Unable to open: \"/boot/config-%s\"", uname_data.release);
-        return false;
-    }
-
-    // Search for the string in the file
-    while (fgets(line, sizeof(line), file)) {
-        if (strncmp(line, search_str, strlen(search_str)) == 0) {
-            fclose(file);
-            return true;
-        }
-    }
-    fclose(file);
-    return false;
+    return search_kernel_config("CONFIG_FANOTIFY=y");
 }
 
 /**
  * @brief Checks if the kernel is configured with FANOTIFY access permissions support.
  * 
- * This function checks if the kernel is configured with access permissions for FANOTIFY events by 
- * reading the kernel configuration file (`/boot/config-<kernel_version>`) and searching for 
- * the `CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y` string. It returns `true` if the feature is enabled, 
- * and `false` otherwise. The kernel version is determined using `uname`.
- * 
  * @return true if the kernel has FANOTIFY access permissions support enabled.
  * @return false if the kernel does not have FANOTIFY access permissions support enabled or an error occurs.
  */
 bool has_config_fanotify_access_perms(void) {
-    struct utsname uname_data;
-    FILE *file;
-    char filepath[256];
-    char line[256];
-    const char *search_str = "CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y";
-
-    // Get the kernel version
-    if (uname(&uname_data) != 0) {
-        log_message(ERROR, __func__, "Unable to get kernel version via uname.");
-        return false;
-    }
-
-    // Construct the file path
-    snprintf(filepath, sizeof(filepath), "/boot/config-%s", uname_data.release);
-
-    // Open the file for reading
-    file = fopen(filepath, "r");
-    if (file == NULL) {
-        log_message(ERROR, __func__, "Unable to fopen: %s", filepath);
-        return false;
-    }
-
-    // Search for the string in the file
-    while (fgets(line, sizeof(line), file)) {
-        if (strncmp(line, search_str, strlen(search_str)) == 0) {
-            fclose(file);
-            return true;
-        }
-    }
-    fclose(file);
-    return false;
+    return search_kernel_config("CONFIG_FANOTIFY_ACCESS_PERMISSIONS=y");
 }
 
 /**
