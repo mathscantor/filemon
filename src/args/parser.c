@@ -256,7 +256,7 @@ user_args_t parse_args(int argc, char *argv[]) {
  */
 void usage(void){
     printf("Usage: filemon DIRECTORY [-h] [-v] [-V] [-m MOUNTS] [-o OUTPUT]\n" 
-    "%15s[-i INCLUDE_PATERN | -e EXCLUDE_PATTERN]\n"
+    "%15s[-i INCLUDE_PATH_PATTERN | -e EXCLUDE_PATH_PATTERN]\n"
     "%15s[-I INCLUDE_PIDS | -E EXCLUDE_PIDS]\n"
     "%15s[-N INCLUDE_PROCESS | -X EXCLUDE_PROCESS] [-P] [-s EVENTS]\n", "", "", "");
     printf("Options:\n");
@@ -265,8 +265,8 @@ void usage(void){
     printf("  %-30s %s\n", "-V  | --version", "Show the version of filemon.");
     printf("  %-30s %s\n", "-m  | --mounts", "Mounts to monitor. Default value: \"/\" (Eg. -m \"/tmp /opt /\")");
     printf("  %-30s %s\n", "", "Maximum number of 5 mounts. Last stated mount has highest priority.");
-    printf("  %-30s %s\n", "-i  | --include-pattern", "Only show events when path matches regex pattern.");
-    printf("  %-30s %s\n", "-e  | --exclude-pattern", "Ignore events when path matches regex pattern.");
+    printf("  %-30s %s\n", "-i  | --include-path-pattern", "Only show events when path matches regex pattern.");
+    printf("  %-30s %s\n", "-e  | --exclude-path-pattern", "Ignore events when path matches regex pattern.");
     printf("  %-30s %s\n", "-o  | --output", "Output to file. (\".txt\", \".csv\", \".json\", \".jsonl\")");
     printf("  %-30s %s\n", "-I  | --include-pids", "Only show events related to these pids. (Eg. -I \"4728 4279\")");
     printf("  %-30s %s\n", "-E  | --exclude-pids", "Ignore events related to these pids. (Eg. -E \"6728 6817\")");
